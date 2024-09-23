@@ -1,8 +1,10 @@
 package itstep.learning;
+import itstep.learning.annotations.Product;
+import itstep.learning.annotations.Required;
 import java.util.Locale;
 
-public class Bus extends Vehicle implements LargeSized {
-    private int capacity;
+@Product public class Bus extends Vehicle implements LargeSized {
+    @Required private int capacity;
     public int getCapacity() { return capacity; }
     public void setCapacity(int capacity) { this.capacity = capacity; }
 

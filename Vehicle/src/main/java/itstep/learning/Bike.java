@@ -1,8 +1,10 @@
 package itstep.learning;
 import java.util.Locale;
+import itstep.learning.annotations.Product;
+import itstep.learning.annotations.Required;
 
-public class Bike extends Vehicle implements Trailer {
-    String type;
+@Product public class Bike extends Vehicle implements Trailer {
+    @Required private String type;
     public String getType() { return type; }
     public void setType(String type) { this.type = type; }
 

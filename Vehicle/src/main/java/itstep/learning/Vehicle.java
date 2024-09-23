@@ -1,7 +1,8 @@
 package itstep.learning;
+import itstep.learning.annotations.Required;
 
 public abstract class Vehicle {
-    private String name;
+    @Required private String name;
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
 
