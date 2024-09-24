@@ -1,5 +1,4 @@
 package itstep.learning.annotations;
-import com.sun.org.apache.xpath.internal.operations.Bool;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;

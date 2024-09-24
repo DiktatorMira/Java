@@ -4,7 +4,7 @@ import itstep.learning.annotations.Required;
 import java.util.Locale;
 
 @Product public class Car extends Vehicle {
-    @Required private String type;
+    @Required private String type = "";
     public String getType() { return type; }
     public void setType(String type) { this.type = type; }
 

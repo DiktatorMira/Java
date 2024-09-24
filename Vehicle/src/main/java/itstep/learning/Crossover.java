@@ -4,7 +4,7 @@ import itstep.learning.annotations.Required;
 import java.util.Locale;
 
 @Product public class Crossover extends Vehicle implements LargeSized, Trailer {
-    @Required private double capacity;
+    @Required(value = "seats") private double capacity;
     public double getCapacity() { return capacity; }
     public void setCapacity(double cargoCapacity) { this.capacity = cargoCapacity; }
 
