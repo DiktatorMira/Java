@@ -1,4 +1,4 @@
-package itstep.learning;
+package itstep.learning.oop;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -56,7 +56,7 @@ public class VehicleFactory {
     private Map<Class<?>, List<String>> getProductClasses(String packageName) {
         if(productClasses != null) return productClasses;
         URL classLocation = this.getClass().getClassLoader().getResource(".");
-        if( classLocation == null ) throw new RuntimeException("Ошибка поиска ресурса");
+        if(classLocation == null) throw new RuntimeException("Ошибка поиска ресурса");
 
         File classRoot = null;
         File[] files;
@@ -88,8 +88,8 @@ public class VehicleFactory {
     private List<String> getRequired(Class<?> cls) {
         List<String> res = new ArrayList<>();
         for(Field field : cls.getDeclaredFields()) {
-            if(field.isAnnotationPresent( Required.class )) {
-                Required annotation = field.getAnnotation( Required.class );
+            if(field.isAnnotationPresent(Required.class)) {
+                Required annotation = field.getAnnotation(Required.class);
                 String requiredName = annotation.value();
                 res.add("".equals(requiredName) ? field.getName() : requiredName);
             }

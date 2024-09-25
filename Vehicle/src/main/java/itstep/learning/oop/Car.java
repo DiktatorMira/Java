@@ -1,4 +1,4 @@
-package itstep.learning;
+package itstep.learning.oop;
 import itstep.learning.annotations.Product;
 import itstep.learning.annotations.Required;
 import java.util.Locale;

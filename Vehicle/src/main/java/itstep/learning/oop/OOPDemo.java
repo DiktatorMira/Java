@@ -1,4 +1,4 @@
-package itstep.learning;
+package itstep.learning.oop;
 
 public class OOPDemo {
     public void run() {

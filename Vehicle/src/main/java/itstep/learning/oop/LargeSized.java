@@ -1,4 +1,4 @@
-package itstep.learning;
+package itstep.learning.oop;
 
 public interface LargeSized {}
 /* Интерфейс-маркер -  не имеет методов, используется только для характеристик

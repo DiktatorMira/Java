@@ -1,4 +1,4 @@
-package itstep.learning;
+package itstep.learning.oop;
 import itstep.learning.annotations.Required;
 
 public abstract class Vehicle {
