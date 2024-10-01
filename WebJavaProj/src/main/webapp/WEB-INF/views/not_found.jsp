@@ -1,10 +1,4 @@
-<%@ page contentType="text/html;charset=UTF-8" %>
-<html>
-    <head>
-        <title>Страница не найдена!</title>
-    </head>
-    <body>
-        <h1>Ошибка 404 - Страница не найдена</h1>
-        <p>Искомая страница не существует.</p>
-    </body>
-</html>
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<div class="container">
+    <h1 class="align-items-center">Страница не найдена! 404</h1>
+</div>

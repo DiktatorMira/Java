@@ -3,9 +3,35 @@
  "http://java.sun.com/dtd/web-app_2_3.dtd" >
 
 <web-app>
-  <display-name>Archetype Created Web Application</display-name>
+  <display-name>KN-P-213 Created Web App</display-name>
   <error-page>
     <error-code>404</error-code>
     <location>/WEB-INF/views/not_found.jsp</location>
   </error-page>
+
+  <filter>
+    <filter-name>charsetFilter</filter-name>
+    <filter-class>itstep.learning.filters.CharsetFilter</filter-class>
+  </filter>
+  <filter-mapping>
+    <filter-name>charsetFilter</filter-name>
+    <url-pattern>/*</url-pattern>
+  </filter-mapping>
+  <filter>
+    <filter-name>securityFilter</filter-name>
+    <filter-class>itstep.learning.filters.SecurityFilter</filter-class>
+  </filter>
+  <filter-mapping>
+    <filter-name>securityFilter</filter-name>
+    <url-pattern>/*</url-pattern>
+  </filter-mapping>
+
+  <servlet>
+    <servlet-name>webXmlServlet</servlet-name>
+    <servlet-class>itstep.learning.servlets.WebXmlServlet</servlet-class>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>webXmlServlet</servlet-name>
+    <url-pattern>/web-xml</url-pattern>
+  </servlet-mapping>
 </web-app>
