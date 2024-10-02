@@ -70,3 +70,6 @@
     <%}%>
     </tbody>
 </table>
+<h1>Генерация случайных имен файлов</h1>
+<p>Имя файла по умолчанию: <strong>${fileNameDefault}</strong></p>
+<p>Имя файла длиной 16 символов: <strong>${fileNameCustomLength}</strong></p>

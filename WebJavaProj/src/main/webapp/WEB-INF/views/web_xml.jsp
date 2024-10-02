@@ -39,3 +39,14 @@
     в файле &lt;code&gt;web.xml&lt;/code&gt; с указанием их маршрутов (роутинга).
     &lt;/p&gt;
 </pre>
+<h2>Странички ошибок</h2>
+<p>
+    В <code>web.xml</code> можно заложить адреса для всех типов ошибок:
+    как по коду ошибки, так и по типу исключения, которое происходит при обработке.
+</p>
+<pre>
+  &lt;error-page&gt;
+    &lt;error-code&gt;404&lt;/error-code&gt;
+    &lt;location&gt;/WEB-INF/views/_layout.jsp&lt;/location&gt;
+  &lt;/error-page&gt;
+</pre>
