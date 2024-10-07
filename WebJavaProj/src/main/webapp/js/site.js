@@ -6,8 +6,7 @@ document.addEventListener("submit", e => {
         fetch(form.action, {
             method: "POST",
             body: formData
-        }).then(r => r.json())
-            .then(j => { console.log(j); });
+        }).then(r => r.json()).then(j => { console.log(j); });
     } else if (form.id === "modal-auth-form") {
         e.preventDefault();
         const queryString = new URLSearchParams(new FormData(form)).toString();

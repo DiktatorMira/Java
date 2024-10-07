@@ -3,72 +3,85 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
-import itstep.learning.dal.dao.TokenDao;
-import itstep.learning.dal.dao.UserDao;
-import itstep.learning.dal.dto.Token;
-import itstep.learning.dal.dto.User;
-import itstep.learning.rest.RestResponse;
+import itstep.learning.dal.dao.AuthDao;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.text.ParseException;
 import java.util.Base64;
-import java.util.logging.Logger;
 
 @Singleton public class AuthServlet extends HttpServlet {
-    private final Logger logger;
-    private final UserDao userDao;
-    private final TokenDao tokenDao;
+    private final AuthDao authDao;
 
-    @Inject public AuthServlet(Logger logger, UserDao userDao, TokenDao tokenDao) {
-        this.logger = logger;
-        this.userDao = userDao;
-        this.tokenDao = tokenDao;
+    @Inject public AuthServlet(AuthDao authDao) {
+        this.authDao = authDao;
     }
     @Override protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        String authHeader = req.getHeader( "Authorization" );
-        if (authHeader == null) {
-            sendRestError( resp, "Missing Authorization header" );
-            return;
-        }
-        if (!authHeader.startsWith("Basic ")) {
-            sendRestError( resp, "Basic Authorization scheme only" );
-            return;
-        }
-        String credentials64 = authHeader.substring( 6 );
-        String credentials;
+        RestResponse restResponse = new RestResponse();
         try {
-            credentials = new String(Base64.getUrlDecoder().decode( credentials64 ));
-        } catch (IllegalArgumentException ex) {
-            logger.warning(ex.getMessage());
-            sendRestError(resp, "Illegal Credential format");
-            return;
+            String authHeader = req.getHeader( "Authorization" );
+            if ( authHeader == null ) throw new ParseException( "Заголовок авторизации не найден", 401 );
+
+            String authScheme = "Basic ";
+            if( ! authHeader.startsWith( authScheme ) ) throw new ParseException( "Неверная схема авторизации. Требуется " + authScheme, 400 );
+
+            String credentials = authHeader.substring( authScheme.length() );
+            String decodedCredentials;
+            try {
+                decodedCredentials = new String(
+                        Base64.getUrlDecoder().decode( credentials.getBytes( StandardCharsets.UTF_8 ) ),
+                        StandardCharsets.UTF_8
+                );
+            } catch( IllegalArgumentException ignored ) {
+                throw new ParseException( "Неверный формат учетных данных", 400 );
+            }
+
+            String[] parts = decodedCredentials.split( ":", 2 );
+            if( parts.length != 2 ) throw new ParseException( "Неверное содержание учетных данных", 400 );
+            restResponse.setStatus( "success" );
+            restResponse.setCode( 200 );
+            restResponse.setData( decodedCredentials );
+        } catch( ParseException ex ) {
+            restResponse.setStatus( "error" );
+            restResponse.setCode( ex.getErrorOffset() );
+            restResponse.setData( ex.getMessage() );
         }
-        String[] parts = credentials.split( ":", 2 );
-        User user = userDao.authenticate( parts[0], parts[1] );
-        if (user == null) {
-            sendRestError( resp, "Invalid username or password" );
-            return;
-        }
-        Token token = tokenDao.create(user) ;
-        sendRestResponse(resp, token);
-    }
-    private void sendRestError(HttpServletResponse resp, String message) throws IOException {
-        RestResponse restResponse = new RestResponse();
-        restResponse.setStatus("Error");
-        restResponse.setData(message);
-        sendRest(resp, restResponse);
-    }
-    private void sendRestResponse(HttpServletResponse resp, Object data) throws IOException {
-        RestResponse restResponse = new RestResponse();
-        restResponse.setStatus( "Ok" );
-        restResponse.setData( data );
-        sendRest(resp, restResponse);
-    }
-    private void sendRest(HttpServletResponse resp, RestResponse restResponse) throws IOException {
-        resp.setContentType( "application/json" );
+
         Gson gson = new GsonBuilder().serializeNulls().create();
+        resp.setContentType( "application/json" );
         resp.getWriter().print( gson.toJson( restResponse ) );
+    }
+    class RestResponse {
+        private int code;
+        private String status;
+        private Object data;
+
+        public RestResponse() {}
+        public RestResponse(int code, String status, Object data) {
+            this.code = code;
+            this.status = status;
+            this.data = data;
+        }
+        public int getCode() {
+            return code;
+        }
+        public void setCode(int code) {
+            this.code = code;
+        }
+        public String getStatus() {
+            return status;
+        }
+        public void setStatus(String status) {
+            this.status = status;
+        }
+        public Object getData() {
+            return data;
+        }
+        public void setData(Object data) {
+            this.data = data;
+        }
     }
 }

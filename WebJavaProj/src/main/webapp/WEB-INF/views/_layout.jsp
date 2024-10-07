@@ -1,97 +1,52 @@
 <%@ page contentType="text/html;charset=UTF-8" %>
 <%
-    String pageName = (String) request.getAttribute( "page" ) ;
-    // contextPath -- /Java221 - контекстний шлях нашого застосунку
-    String contextPath = request.getContextPath();
-    boolean isAuthenticated = request.getAttribute("Claim.Sid") != null;
-    String avatar = (String) request.getAttribute("Claim.Avatar");
-    String userName = (String) request.getAttribute("Claim.Name");
+    String pageBody = (String) request.getAttribute( "body" );
+    if ( pageBody == null ) pageBody = "not_found.jsp";
+    String contextPath = request.getContextPath();   // аналог ~/
 %>
 <html>
     <head>
-        <title>PV-221</title>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
-        <link rel="stylesheet" href="<%=contextPath%>/css/site.css" />
+        <title>KN-P-213</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+        <link rel="stylesheet" href="<%= contextPath %>/css/site.css" />
     </head>
     <body>
         <header>
-            <nav>
-                <div class="nav-wrapper light-blue">
-                    <a href="<%=contextPath%>/" class="site-logo left">
-                        <img src="<%=contextPath%>/img/Java_Logo.png" alt="Logo"/>PV-221
-                    </a>
-                    <ul id="nav-mobile" class="left">
-                        <li><a href="<%=contextPath%>/spa">SPA</a></li>
-                        <li><a href="#">Components</a></li>
-                        <li><a href="#">JavaScript</a></li>
-                    </ul>
-                    <% if( isAuthenticated ) { %>
-                    <img src="<%=contextPath%>/file/<%=avatar%>"
-                         alt="avatar"
-                         title="<%=userName%>"
-                         class="nav-addon right nav-avatar"/>
-                    <a class="nav-addon right" href="?logout"><i class="material-icons">logout</i></a>
-                    <% } else { %>
-                    <a class="nav-addon right" href="<%=contextPath%>/signup"><i class="material-icons">person_add</i></a>
-                    <a class="nav-addon right modal-trigger" href="#auth-modal"><i class="material-icons">login</i></a>
-                    <% } %>
+            <nav class="navbar navbar-expand-lg bg-body-tertiary">
+                <div class="container-fluid">
+                    <a class="navbar-brand" href="<%=contextPath%>/">Java Web</a>
+                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                            <li class="nav-item">
+                                <a class="nav-link <%= "home.jsp".equals( pageBody ) ? "active" : "" %>" href="<%=contextPath%>/">Домашняя страница</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link <%= "web_xml.jsp".equals( pageBody ) ? "active" : "" %>" href="<%=contextPath%>/web-xml">WebXml</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="<%=contextPath%>/shop.jsp">Магазин</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link <%= "api_test.jsp".equals(pageBody) ? "active" : "" %>" href="<%=contextPath%>/api-test">API Тест</a>
+                            </li>
+                        </ul>
+                        <form class="d-flex" role="search">
+                            <input class="form-control me-2" type="search" placeholder="Поиск" aria-label="Search">
+                            <button class="btn btn-outline-success" type="submit">Поиск</button>
+                        </form>
+                    </div>
                 </div>
             </nav>
         </header>
-        <main class="container"><jsp:include page='<%= pageName + ".jsp" %>' /></main>
+        <main class="container"><jsp:include page='<%= pageBody %>'/></main>
         <div class="spacer"></div>
-        <footer class="page-footer light-blue">
-            <div class="container">
-                <div class="row">
-                    <div class="col l6 s12">
-                        <h5 class="white-text">Footer Content</h5>
-                        <p class="grey-text text-lighten-4">You can use rows and columns here to organize your footer content.</p>
-                    </div>
-                    <div class="col l4 offset-l2 s12">
-                        <h5 class="white-text">Links</h5>
-                        <ul>
-                            <li><a class="grey-text text-lighten-3" href="#!">Link 1</a></li>
-                            <li><a class="grey-text text-lighten-3" href="#!">Link 2</a></li>
-                            <li><a class="grey-text text-lighten-3" href="#!">Link 3</a></li>
-                            <li><a class="grey-text text-lighten-3" href="#!">Link 4</a></li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-            <div class="footer-copyright">
-                <div class="container">
-                    © 2024 ITSTEP PV-221
-                    <a class="grey-text text-lighten-4 right" href="#!">More Links</a>
-                </div>
-            </div>
-        </footer>
-        <!-- Modal Structure -->
-        <div id="auth-modal" class="modal">
-            <div class="modal-content">
-                <h4>Автентифікація</h4>
-                <form id="modal-auth-form" action="<%=contextPath%>/signup">
-                    <div class="row">
-                        <div class="input-field col s6">
-                            <i class="material-icons prefix">alternate_email</i>
-                            <input id="auth-user-email" name="user-email" type="email" class="validate">
-                            <label for="auth-user-email">E-mail</label>
-                        </div>
-                        <div class="input-field col s6">
-                            <i class="material-icons prefix">lock</i>
-                            <input id="auth-user-password" name="user-password" type="password" class="validate">
-                            <label for="auth-user-password">Пароль</label>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="modal-close waves-effect waves-green btn-flat">Закрити</button>
-                <button form="modal-auth-form" type="submit" class="waves-effect waves-green btn-flat">Вхід</button>
-            </div>
-        </div>
+        <footer class="bg-body-tertiary px-3 py-2">&copy; 2024, ITSTEP КН-П-213</footer>
 
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
-        <script src="<%=contextPath%>/js/site.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+        <script src="<%= contextPath %>/js/site.js"></script>
     </body>
 </html>

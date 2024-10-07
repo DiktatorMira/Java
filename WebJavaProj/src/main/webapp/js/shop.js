@@ -1,188 +1,124 @@
 import React from "react";
 
 const initialState = {
-    auth: { token: null },
-    page: "home",
-    shop: { categories: [ ] }
+    auth: { token: null,  user: null },
+    page: 'home',
 };
-function reducer(state, action) {
+const AppContext = React.createContext(null);
+
+function reducer( state, action ) {
     switch( action.type ) {
-        case 'auth' :
-            return { ...state,
-                auth: { ...state.auth, token: action.payload }
-            };
-        case 'navigate' :
+        case 'navigate':
             window.location.hash = action.payload;
             return { ...state, page: action.payload };
-        case 'setCategory' :
-            return { ...state,
-                shop: { ...state.shop, categories: action.payload }
-            };
-        default: throw Error('Неизвестное действиеі.');
     }
 }
-
-const StateContext = React.createContext(null);
-function Spa() {
+function App({contextPath, homePath}) {
     const [state, dispatch] = React.useReducer( reducer, initialState );
+    React.useEffect( () => {
+        let hash = window.location.hash;
+        if( hash.length > 1 ) dispatch( { type: "navigate", payload: hash.substring(1) } );
+    }, [] );
+    return <AppContext.Provider value={{state, dispatch, contextPath}}>
+        <header>
+            <nav className="navbar navbar-expand-lg bg-body-tertiary">
+                <div className="container-fluid">
+                    <a className="navbar-brand"
+                       onClick={() => dispatch({type: "navigate", payload: "home"})}>Крамниця</a>
+                    <button className="navbar-toggler" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent"
+                            aria-expanded="false" aria-label="Toggle navigation">
+                        <span className="navbar-toggler-icon"></span>
+                    </button>
+                    <div className="collapse navbar-collapse" id="navbarSupportedContent">
+                        <ul className="navbar-nav me-auto mb-2 mb-lg-0">
+                            <li className="nav-item">
+                                <a className="nav-link" onClick={() => dispatch({type: "navigate", payload: "home"})}>Домашня</a>
+                            </li>
+                            <li className="nav-item">
+                                <a className="nav-link "
+                                   onClick={() => dispatch({type: "navigate", payload: "cart"})}>Кошик</a>
+                            </li>
+
+                        </ul>
+                        <form className="d-flex nav-search" role="search">
+                            <input className="form-control me-2" type="search" placeholder="Search"
+                                   aria-label="Search"/>
+                            <button className="btn btn-outline-success" type="submit"><i className="bi bi-search"></i>
+                            </button>
+                        </form>
+                        <button type="button" className="btn btn-outline-secondary"
+                                data-bs-toggle="modal" data-bs-target="#authModal">
+                            <i className="bi bi-box-arrow-in-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </nav>
+        </header>
+        <main className="container">
+            {state.page === 'home' && <Home/>}
+            {state.page === 'cart' && <Cart/>}
+        </main>
+        <div className="spacer"></div>
+        <div className="modal fade" id="authModal" tabIndex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+            <AuthModal />
+        </div>
+        <footer className="bg-body-tertiary px-3 py-2">&copy; 2024, ITSTEP KN-P-213</footer>
+    </AppContext.Provider>;
+}
+function AuthModal() {
+    const {contextPath} = React.useContext( AppContext );
     const [login, setLogin] = React.useState("");
     const [password, setPassword] = React.useState("");
-    const [error, setError] = React.useState(false);
-    const [isAuth, setAuth] = React.useState(false);
-    const [resource, setResource] = React.useState("");
-    const loginChange = React.useCallback( (e) => setLogin( e.target.value ) );
-    const passwordChange = React.useCallback( (e) => setPassword( e.target.value ) );
     const authClick = React.useCallback( () => {
-        const credentials = btoa( login + ":" + password );
-        fetch("auth", {
+        console.log(login, password);
+        fetch(`${contextPath}/auth`, {
             method: 'GET',
-            headers: { 'Authorization': 'Basic ' + credentials }
-        }).then(r => r.json()).then( j => {
-            if (j.status === "Ok") {
-                window.sessionStorage.setItem( "token221", JSON.stringify( j.data ) );
-                setAuth(true);
-            } else setError(j.data);
-        });
-        console.log(credentials);
-    } );
-    const exitClick = React.useCallback( () => {
-        window.sessionStorage.removeItem( "token221" );
-        setAuth(false);
-    });
-    const resourceClick = React.useCallback( () => {
-        const token = window.sessionStorage.getItem("token221");
-        if (!token) {
-            alert("Запит ресурсу в неавторизованому режимі");
-            return;
-        }
-        fetch("spa", {
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + JSON.parse(token).tokenId }
-        }).then(r => r.json()).then( j => {
-            setResource(JSON.stringify(j));
-        });
-    });
-    const checkToken = React.useCallback( () => {
-        let token = window.sessionStorage.getItem( "token221" );
-        if (token) {
-            token = JSON.parse(token);
-            if (new Date(token.exp) < new Date()) exitClick();
-            else {
-                if (!isAuth) {
-                    setAuth(true);
-                    dispatch({ type: 'auth', payload: token });
-                }
-            }
-        } else setAuth(false);
-    });
-    React.useEffect(() => {
-        const hash = window.location.hash;
-        if( hash.length > 1 ) dispatch({ type: 'navigate', payload: hash.substring(1) });
-        checkToken();
-        const interval = setInterval(checkToken, 1000);
-        return () => clearInterval(interval);
-    }, []);
-    const navigate = React.useCallback( (route) => {
-        dispatch( { type: 'navigate', payload: route } );
-    });
-    return <StateContext.Provider value={ {state, dispatch} }>
-        <h1>SPA</h1>
-        { !isAuth &&
-            <div>
-                <b>Логин</b><input onChange={loginChange} /><br/>
-                <b>Пароль</b><input type="password"  onChange={passwordChange} /><br/>
-                <button onClick={authClick}>Получить токен</button>
-                {error && <b>{error}</b>}
-            </div>
-        }{ isAuth &&
-        <div>
-            <button onClick={resourceClick} className="btn light-blue">Ресурс</button>
-            <button onClick={exitClick} className="btn indigo lighten-4">Выход</button>
-            <p>{resource}</p>
-            <b onClick={() => navigate('home')}>Домашняя</b>
-            <b onClick={() => navigate('shop')}>Магазин</b>
-            { state.page === 'home' && <Home /> }
-            { state.page === 'shop' && <Shop /> }
-            { state.page.startsWith('category/') && <Category id={state.page.substring(9)} /> }
-        </div>
-    }
-    </StateContext.Provider>;
-}
-function Category({id}) {
-    const {state, dispatch} = React.useContext(StateContext);
-    const addProduct = React.useCallback( (e) => {
-        e.preventDefault();
-        console.log(state.auth.token);
-        const formData = new FormData(e.target);
-        fetch("shop/product", {
-            method: 'POST',
-            headers: { 'Authorization': 'Bearer ' + state.auth.token.tokenId },
-            body: formData
+            headers: { 'Authorization': 'Basic ' + btoa( login + ':' + password) }
         }).then(r => r.json()).then(console.log);
     });
+    return <div className="modal-dialog">
+        <div className="modal-content">
+            <div className="modal-header">
+                <h1 className="modal-title fs-5" id="exampleModalLabel">Вхід до системи</h1>
+                <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div className="modal-body">
+                <div className="input-group mb-3">
+                    <span className="input-group-text" id="login-addon"><i className="bi bi-person-fill-lock"></i></span>
+                    <input type="text" className="form-control" placeholder="Логін" aria-label="Логін"
+                           onChange={e => setLogin(e.target.value)}
+                           aria-describedby="login-addon"/>
+                </div>
+                <div className="input-group mb-3">
+                    <span className="input-group-text" id="password-addon"><i className="bi bi-key-fill"></i></span>
+                    <input type="password" className="form-control" placeholder="******" aria-label="Пароль"
+                           onChange={e => setPassword(e.target.value)}
+                           aria-describedby="password-addon"/>
+                </div>
+            </div>
+            <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Скасувати</button>
+                <button type="button" className="btn btn-primary" onClick={authClick}>Вхід</button>
+            </div>
+        </div>
+    </div>;
+}
+function Cart() {
+    const {state, dispatch} = React.useContext(AppContext);
     return <div>
-        Категория: {id}<br/>
-        <b onClick={() => dispatch({type: 'navigate', payload: 'home'})}>В магазин</b>
-        <br/>
-        {state.auth.token &&
-            <form onSubmit={addProduct} encType="multipart/form-data">
-                <hr/>
-                <input name="product-name" placeholder="Назва"/>
-                <input name="product-slug" placeholder="Slug"/><br/>
-                <input name="product-price" type="number" step="0.01" placeholder="Цена"/><br/>
-                Картинка: <input type="file" name="product-img"/><br/>
-                <textarea name="product-description" placeholder="Опис"></textarea><br/>
-                <input type="hidden" name="product-category-id" value={id} />
-                <button type="submit">Добавить</button>
-            </form>}
+        <h2>Кошик</h2>
+        <b onClick={() => dispatch({type: "navigate", payload: "home"})}>На Домашню</b>
     </div>;
 }
 function Home() {
-    const {state, dispatch} = React.useContext(StateContext);
-    React.useEffect(() => {
-        if (state.shop.categories.length === 0) {
-            fetch("shop/category")
-                .then(r => r.json())
-                .then(j => dispatch({type: 'setCategory', payload: j.data}));
-        }
-    }, [] );
-    return <React.Fragment>
-        <h2>Home</h2>
-        <b onClick={() => dispatch( { type: 'navigate', payload: 'shop' } )}>В админку</b>
-        <div>
-            {state.shop.categories.map(c =>
-                <div key={c.id}
-                     className="shop-category"
-                     onClick={() => dispatch( { type: 'navigate', payload: 'category/' + c.id } )}>
-                    <b>{c.name}</b>
-                    <picture>
-                        <img src={"file/" + c.imageUrl} alt="grp" />
-                    </picture>
-                    <p>{c.description}</p>
-                </div>)}
-        </div>
-    </React.Fragment>;
+    const {state, dispatch} = React.useContext(AppContext);
+    return <div>
+        <h2>Домашня</h2>
+        <b onClick={() => dispatch({type: "navigate", payload: "cart"})}>До Кошику</b>
+    </div>;
 }
-function Shop() {
-    const addCategory = React.useCallback( (e) => {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        fetch("shop/category", {
-            method: 'POST',
-            body: formData
-        }).then(r => r.json()).then(console.log);
-        // console.log(e);
-    });
-    return <React.Fragment>
-        <h2>Shop</h2>
-        <hr/>
-        <form onSubmit={addCategory} encType="multipart/form-data">
-            <input name="category-name" placeholder="Категорія"/>
-            <input name="category-slug" placeholder="Slug"/><br/>
-            Картинка: <input type="file" name="category-img"/><br/>
-            <textarea name="category-description" placeholder="Опис"></textarea><br/>
-            <button type="submit">Додати</button>
-        </form>
-    </React.Fragment>;
-}
-ReactDOM.createRoot(document.getElementById("spa-container")).render(<Spa />);
+const domRoot = document.getElementById("app-container");
+const cp = domRoot.getAttribute("data-context-path");
+const hp = domRoot.getAttribute("data-home-path");
+ReactDOM.createRoot(domRoot).render(<App contextPath={cp} homePath={hp}/>);

@@ -1,21 +1,26 @@
 package itstep.learning.filters;
+import com.google.inject.Singleton;
 import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
+@Singleton
 public class CharsetFilter implements Filter {
     private FilterConfig filterConfig;
-    @Override public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain) throws IOException, ServletException {
-        HttpServletRequest request = (HttpServletRequest) servletRequest;
-        HttpServletResponse resp = (HttpServletResponse) servletResponse;
-        request.setCharacterEncoding("UTF-8");
-        resp.setCharacterEncoding("UTF-8");
-        System.out.println("CharsetFilter worked for: " + request.getRequestURI());
-        filterChain.doFilter(servletRequest, servletResponse);
-    }
-    @Override public void destroy() { this.filterConfig = null; }
-    @Override public void init(FilterConfig filterConfig) throws ServletException {
+
+    @Override public void init( FilterConfig filterConfig ) throws ServletException {
         this.filterConfig = filterConfig;
+    }
+    @Override public void doFilter( ServletRequest request, ServletResponse response, FilterChain chain ) throws IOException, ServletException {
+        HttpServletRequest req = (HttpServletRequest) request;
+        HttpServletResponse resp = (HttpServletResponse) response;
+        req.setCharacterEncoding( "UTF-8" );
+        resp.setCharacterEncoding( "UTF-8" );
+        System.out.println( "CharsetFilter worked for: " + req.getRequestURI() );
+        chain.doFilter( request, response );
+    }
+    @Override public void destroy() {
+        this.filterConfig = null;
     }
 }
