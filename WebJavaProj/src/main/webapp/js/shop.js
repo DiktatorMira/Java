@@ -1,13 +1,16 @@
 import React from "react";
 
-const initialState = { authUser: null, page: 'home', };
+const initialState = {
+    authUser: null,
+    page: 'home',
+};
 const AppContext = React.createContext(null);
 
 function reducer( state, action ) {
     switch( action.type ) {
         case 'navigate':
             window.location.hash = action.payload;
-            return { ...state, page: action.payload, };
+            return { ...state, page: action.payload };
         case 'authenticate' :
             window.localStorage.setItem("auth-user", JSON.stringify(action.payload));
             return { ...state, authUser: action.payload };
@@ -30,7 +33,7 @@ function App({contextPath, homePath}) {
             }
         }
         let hash = window.location.hash;
-        if (hash.length > 1) dispatch( { type: "navigate", payload: hash.substring(1) } );
+        if (hash.length > 1) dispatch({ type: "navigate", payload: hash.substring(1) });
     }, [] );
     return <AppContext.Provider value={{state, dispatch, contextPath}}>
         <header>
@@ -70,6 +73,7 @@ function App({contextPath, homePath}) {
                                 <i className="bi bi-person-add"></i>
                             </button>
                         </div>}
+
                         {state.authUser && <div>
                             <b>{state.authUser.userName}</b>
                             <button type="button" className="btn btn-outline-warning"
@@ -87,12 +91,20 @@ function App({contextPath, homePath}) {
             {state.page === 'signup' && <Signup/>}
         </main>
         <div className="spacer"></div>
-        <div className="modal fade" id="authModal" tabIndex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true"><AuthModal /></div>
+        <div className="modal fade" id="authModal" tabIndex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true"><AuthModal/></div>
         <footer className="bg-body-tertiary px-3 py-2">&copy; 2024, ITSTEP KN-P-213</footer>
     </AppContext.Provider>;
 }
 function Signup() {
-    const onFormSubmit = React.useCallback( e => { e.preventDefault(); });
+    const {contextPath} = React.useContext(AppContext);
+    const onFormSubmit = React.useCallback( e => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        fetch(`${contextPath}/auth`, {
+            method: "POST",
+            body: formData
+        }).then(r => r.json()).then(console.log);
+    });
     return <div>
         <h1>Реєстрація нового користувача</h1>
         <form encType="multipart/form-data" method="POST" onSubmit={onFormSubmit}>
