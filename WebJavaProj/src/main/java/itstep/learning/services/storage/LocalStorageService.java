@@ -11,31 +11,36 @@ import java.util.UUID;
     private final static String storagePath = "C:/storage/Java213/";
     private final static int bufferSize = 4096;
 
-    @Override public File getFile( String fileName ) { return null; }
+    @Override public File getFile( String fileName ) {
+        if (fileName == null) return null;
+        File file = new File(storagePath, fileName);
+        if (!file.exists()) return null;
+        return file;
+    }
     @Override public String saveFile( FileItem fileItem ) throws IOException {
         if (fileItem == null) throw new IOException("FileItem is null");
-        if (fileItem.getSize() == 0) throw new IOException("FileItem is empty");
-        if (fileItem.getName() == null) throw new IOException("FileItem has no name");
+        if (fileItem.getSize() == 0) throw new IOException( "FileItem is empty" );
+        if (fileItem.getName() == null) throw new IOException( "FileItem has no name" );
 
-        int dotIndex = fileItem.getName().lastIndexOf('.');
-        if (dotIndex == -1) throw new IOException("FileItem has no extension");
-        String extension = fileItem.getName().substring(dotIndex);
-        if (".".equals(extension)) throw new IOException("FileItem has empty extension");
+        int dotIndex = fileItem.getName().lastIndexOf( '.' );
+        if (dotIndex == -1) throw new IOException( "FileItem has no extension" );
+        String extension = fileItem.getName().substring( dotIndex );
+        if (".".equals( extension )) throw new IOException("FileItem has empty extension");
 
         String savedName;
         File file;
         do {
             savedName = UUID.randomUUID() + extension ;
-            file = new File( storagePath, savedName );
+            file = new File(storagePath, savedName);
         } while (file.exists());
 
         long size = fileItem.getSize();
         if (size > bufferSize) size = bufferSize;
+
         byte[] buffer = new byte[(int)size];
         int len;
-
-        try (FileOutputStream fos = new FileOutputStream( file ); InputStream in = fileItem.getInputStream()) {
-            while ((len = in.read( buffer )) > 0) fos.write(buffer, 0, len);
+        try (FileOutputStream fos = new FileOutputStream(file); InputStream in = fileItem.getInputStream()) {
+            while ((len = in.read(buffer)) > 0) fos.write(buffer, 0, len);
         }
         return savedName;
     }

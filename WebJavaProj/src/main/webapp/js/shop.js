@@ -1,9 +1,6 @@
 import React from "react";
 
-const initialState = {
-    authUser: null,
-    page: 'home',
-};
+const initialState = { authUser: null, page: 'home', };
 const AppContext = React.createContext(null);
 
 function reducer( state, action ) {
@@ -23,13 +20,13 @@ function App({contextPath, homePath}) {
     const [state, dispatch] = React.useReducer( reducer, initialState );
     React.useEffect( () => {
         let authUser = window.localStorage.getItem( "auth-user" );
-        if( authUser ) {
+        if (authUser) {
             authUser = JSON.parse( authUser );
             let token = authUser.token;
-            if( token ) {
+            if (token) {
                 let exp = new Date(token.exp);
-                if (exp < new Date()) dispatch({type: 'logout'});
-                else dispatch({type: 'authenticate', payload: authUser});
+                if (exp < new Date()) dispatch({ type: 'logout' });
+                else dispatch({ type: 'authenticate', payload: authUser });
             }
         }
         let hash = window.location.hash;
@@ -73,9 +70,11 @@ function App({contextPath, homePath}) {
                                 <i className="bi bi-person-add"></i>
                             </button>
                         </div>}
-
                         {state.authUser && <div>
-                            <b>{state.authUser.userName}</b>
+                            <img src={"storage/" + state.authUser.avatarUrl}
+                                 alt={state.authUser.userName}
+                                 className="nav-avatar"/>
+
                             <button type="button" className="btn btn-outline-warning"
                                     onClick={() => dispatch({type: 'logout'}) }>
                                 <i className="bi bi-box-arrow-right"></i>
@@ -91,23 +90,29 @@ function App({contextPath, homePath}) {
             {state.page === 'signup' && <Signup/>}
         </main>
         <div className="spacer"></div>
-        <div className="modal fade" id="authModal" tabIndex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true"><AuthModal/></div>
+        <AuthModal />
         <footer className="bg-body-tertiary px-3 py-2">&copy; 2024, ITSTEP KN-P-213</footer>
     </AppContext.Provider>;
 }
 function Signup() {
     const {contextPath} = React.useContext(AppContext);
+    const formRef = React.useRef();
     const onFormSubmit = React.useCallback( e => {
         e.preventDefault();
         const formData = new FormData(e.target);
         fetch(`${contextPath}/auth`, {
             method: "POST",
             body: formData
-        }).then(r => r.json()).then(console.log);
+        }).then(r => r.json()).then(j => {
+            if (j.status.isSuccessful) {
+                alert("Ви успішно зареєстровані");
+                formRef.current.reset();
+            } else alert(j.data);
+        });
     });
     return <div>
         <h1>Реєстрація нового користувача</h1>
-        <form encType="multipart/form-data" method="POST" onSubmit={onFormSubmit}>
+        <form encType="multipart/form-data" method="POST" onSubmit={onFormSubmit} ref={formRef}>
             <div className="row">
                 <div className="col col-6">
                     <div className="input-group mb-3">
@@ -189,6 +194,7 @@ function AuthModal() {
     const {contextPath, dispatch} = React.useContext(AppContext);
     const [login, setLogin] = React.useState("");
     const [password, setPassword] = React.useState("");
+    const authModalRef = React.useRef();
     const authClick = React.useCallback(() => {
         console.log(login, password);
         fetch(`${contextPath}/auth`, {
@@ -196,33 +202,39 @@ function AuthModal() {
             headers: { 'Authorization': 'Basic ' + btoa(login + ':' + password) }
         }).then(r => r.json()).then(j => {
             console.log(j);
-            if (j.status.isSuccessful) dispatch({type: 'authenticate', payload: j.data});
-            else alert(j.data);
+            if (j.status.isSuccessful) {
+                dispatch({type: 'authenticate', payload: j.data});
+                bootstrap.Modal.getInstance(authModalRef.current).hide();
+            } else alert(j.data);
         });
     });
-    return <div className="modal-dialog">
-        <div className="modal-content">
-            <div className="modal-header">
-                <h1 className="modal-title fs-5" id="exampleModalLabel">Вхід до системи</h1>
-                <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div className="modal-body">
-                <div className="input-group mb-3">
-                    <span className="input-group-text" id="login-addon"><i className="bi bi-person-fill-lock"></i></span>
-                    <input type="text" className="form-control" placeholder="Логін" aria-label="Логін"
-                           onChange={e => setLogin(e.target.value)}
-                           aria-describedby="login-addon"/>
+    return <div className="modal fade" id="authModal" tabIndex="-1" ref={authModalRef}
+                aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div className="modal-dialog">
+            <div className="modal-content">
+                <div className="modal-header">
+                    <h1 className="modal-title fs-5" id="exampleModalLabel">Вхід до системи</h1>
+                    <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div className="input-group mb-3">
-                    <span className="input-group-text" id="password-addon"><i className="bi bi-key-fill"></i></span>
-                    <input type="password" className="form-control" placeholder="******" aria-label="Пароль"
-                           onChange={e => setPassword(e.target.value)}
-                           aria-describedby="password-addon"/>
+                <div className="modal-body">
+                    <div className="input-group mb-3">
+                        <span className="input-group-text" id="login-addon"><i
+                            className="bi bi-person-fill-lock"></i></span>
+                        <input type="text" className="form-control" placeholder="Логін" aria-label="Логін"
+                               onChange={e => setLogin(e.target.value)}
+                               aria-describedby="login-addon"/>
+                    </div>
+                    <div className="input-group mb-3">
+                        <span className="input-group-text" id="password-addon"><i className="bi bi-key-fill"></i></span>
+                        <input type="password" className="form-control" placeholder="******" aria-label="Пароль"
+                               onChange={e => setPassword(e.target.value)}
+                               aria-describedby="password-addon"/>
+                    </div>
                 </div>
-            </div>
-            <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Скасувати</button>
-                <button type="button" className="btn btn-primary" onClick={authClick}>Вхід</button>
+                <div className="modal-footer">
+                    <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Скасувати</button>
+                    <button type="button" className="btn btn-primary" onClick={authClick}>Вхід</button>
+                </div>
             </div>
         </div>
     </div>;

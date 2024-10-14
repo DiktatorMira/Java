@@ -5,11 +5,11 @@ import itstep.learning.servlets.*;
 
 public class WebModule extends ServletModule {
     @Override protected void configureServlets() {
-        filter("/*").through(CharsetFilter.class);
-        filter("/*").through(SecurityFilter.class);
-        serve("/").with(HomeServlet.class);
-        serve("/auth").with(AuthServlet.class);
-        serve("/web-xml" ).with(WebXmlServlet.class);
-        serve("/api-test").with(ApiTestServlet.class);
+        filter( "/*" ).through( CharsetFilter.class  );
+        filter( "/*" ).through( SecurityFilter.class );
+        serve( "/"          ).with( HomeServlet.class    );
+        serve( "/auth"      ).with( AuthServlet.class    );
+        serve( "/storage/*" ).with( StorageServlet.class );
+        serve( "/web-xml"   ).with( WebXmlServlet.class  );
     }
 }
