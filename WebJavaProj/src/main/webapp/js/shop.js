@@ -1,10 +1,10 @@
 import React from "react";
 
-const initialState = { authUser: null, page: 'home', };
+const initialState = { authUser: null, page: 'home' };
 const AppContext = React.createContext(null);
 
-function reducer( state, action ) {
-    switch( action.type ) {
+function reducer(state, action) {
+    switch (action.type) {
         case 'navigate':
             window.location.hash = action.payload;
             return { ...state, page: action.payload };
@@ -20,12 +20,11 @@ function App({contextPath, homePath}) {
     const [state, dispatch] = React.useReducer( reducer, initialState );
     React.useEffect( () => {
         let authUser = window.localStorage.getItem( "auth-user" );
-        if (authUser) {
+        if( authUser ) {
             authUser = JSON.parse( authUser );
             let token = authUser.token;
             if (token) {
-                let exp = new Date(token.exp);
-                if (exp < new Date()) dispatch({ type: 'logout' });
+                if (new Date(token.exp) < new Date()) dispatch({ type: 'logout' });
                 else dispatch({ type: 'authenticate', payload: authUser });
             }
         }
@@ -74,7 +73,6 @@ function App({contextPath, homePath}) {
                             <img src={"storage/" + state.authUser.avatarUrl}
                                  alt={state.authUser.userName}
                                  className="nav-avatar"/>
-
                             <button type="button" className="btn btn-outline-warning"
                                     onClick={() => dispatch({type: 'logout'}) }>
                                 <i className="bi bi-box-arrow-right"></i>
@@ -112,7 +110,8 @@ function Signup() {
     });
     return <div>
         <h1>Реєстрація нового користувача</h1>
-        <form encType="multipart/form-data" method="POST" onSubmit={onFormSubmit} ref={formRef}>
+        <form encType="multipart/form-data" method="POST"
+              onSubmit={onFormSubmit} ref={formRef}>
             <div className="row">
                 <div className="col col-6">
                     <div className="input-group mb-3">
