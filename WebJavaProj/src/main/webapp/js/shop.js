@@ -1,37 +1,56 @@
 import React from "react";
 
-const initialState = { authUser: null, page: 'home' };
+const initialState = {
+    authUser: null,
+    page: 'home',
+    categories: [],
+};
 const AppContext = React.createContext(null);
 
-function reducer(state, action) {
-    switch (action.type) {
-        case 'navigate':
-            window.location.hash = action.payload;
-            return { ...state, page: action.payload };
-        case 'authenticate' :
+function reducer( state, action ) {
+    switch( action.type ) {
+        case 'authenticate' : {
             window.localStorage.setItem("auth-user", JSON.stringify(action.payload));
-            return { ...state, authUser: action.payload };
+            return { ...state, authUser: action.payload }
+        }
+        case 'categories':
+            return { ...state,  categories: action.payload }
         case 'logout' :
             window.localStorage.removeItem( "auth-user" );
-            return { ...state, authUser: null };
+            return { ...state, authUser: null }
+        case 'navigate':
+            window.location.hash = action.payload;
+            return { ...state, page: action.payload }
     }
 }
 function App({contextPath, homePath}) {
     const [state, dispatch] = React.useReducer( reducer, initialState );
+    const loadCategories = React.useCallback( () => {
+        fetch(`${contextPath}/shop/category`)
+        .then(r => r.json())
+        .then(j => dispatch({type: 'categories', payload: j.data}));
+    });
+    const checkHash = React.useCallback( () => {
+        let hash = window.location.hash;
+        if (hash.length > 1) dispatch( { type: "navigate", payload: hash.substring(1) } );
+    } ) ;
     React.useEffect( () => {
         let authUser = window.localStorage.getItem( "auth-user" );
-        if( authUser ) {
-            authUser = JSON.parse( authUser );
+        if (authUser) {
+            authUser = JSON.parse(authUser);
             let token = authUser.token;
             if (token) {
-                if (new Date(token.exp) < new Date()) dispatch({ type: 'logout' });
-                else dispatch({ type: 'authenticate', payload: authUser });
+                let exp = new Date(token.exp);
+                if (exp < new Date()) dispatch({ type: 'logout' });
+                else dispatch({type: 'authenticate', payload: authUser});
             }
         }
-        let hash = window.location.hash;
-        if (hash.length > 1) dispatch({ type: "navigate", payload: hash.substring(1) });
+        checkHash();
+        window.addEventListener('hashchange', checkHash);
+        loadCategories();
+        return () => { window.removeEventListener('hashchange', checkHash); }
     }, [] );
-    return <AppContext.Provider value={{state, dispatch, contextPath}}>
+    return <AppContext.Provider value={{state, dispatch, contextPath, loadCategories}}>
         <header>
             <nav className="navbar navbar-expand-lg bg-body-tertiary">
                 <div className="container-fluid">
@@ -77,25 +96,103 @@ function App({contextPath, homePath}) {
                                     onClick={() => dispatch({type: 'logout'}) }>
                                 <i className="bi bi-box-arrow-right"></i>
                             </button>
+                            {state.authUser.role.canCreate &&
+                                <button type="button" className="btn btn-outline-warning"
+                                        onClick={() => dispatch({type: 'navigate', payload: 'admin'})}>
+                                    <i className="bi bi-speedometer2"></i>
+                                </button>
+                            }
                         </div>}
                     </div>
                 </div>
             </nav>
         </header>
         <main className="container">
-            {state.page === 'home'   && <Home/>  }
-            {state.page === 'cart'   && <Cart/>  }
-            {state.page === 'signup' && <Signup/>}
+            { state.page === 'admin'  && <Admin/>  }
+            { state.page === 'cart'   && <Cart/>   }
+            { state.page === 'home'   && <Home/>   }
+            { state.page === 'signup' && <Signup/> }
+            { state.page.startsWith('category/') && <Category id={state.page.substring(9)}/> }
         </main>
         <div className="spacer"></div>
         <AuthModal />
         <footer className="bg-body-tertiary px-3 py-2">&copy; 2024, ITSTEP KN-P-213</footer>
     </AppContext.Provider>;
 }
+function Admin() {
+    const {state, dispatch, contextPath, loadCategories} = React.useContext(AppContext);
+    React.useEffect( () => {
+        if(!state.authUser || !state.authUser.role || !state.authUser.role.canCreate) dispatch({type: 'navigate', payload: 'home'});
+    }, [] );
+    const categoryFormRef = React.useRef(), onCategorySubmit = React.useCallback(e => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        fetch(`${contextPath}/shop/category`, {
+            method: "POST",
+            body: formData
+        }).then(r => r.json()).then(j => {
+            if (j.status.isSuccessful) {
+                alert("Категорія успішно створена");
+                categoryFormRef.current.reset();
+                loadCategories();
+            } else alert(j.data);
+        });
+    });
+    return <div>
+        <h1>Панель адміністрування</h1>
+        <hr/>
+        <h2>Створення товарних категорій</h2>
+        <form encType="multipart/form-data" method="POST"
+              onSubmit={onCategorySubmit} ref={categoryFormRef}>
+            <div className="row">
+                <div className="col col-6">
+                    <div className="input-group mb-3">
+                        <span className="input-group-text" id="name-addon"><i className="bi bi-info-square"></i></span>
+                        <input type="text" className="form-control"
+                               name="category-name" placeholder="Назва"
+                               aria-label="Назва" aria-describedby="name-addon"/>
+                    </div>
+                </div>
+                <div className="col col-6">
+                    <div className="input-group mb-3">
+                        <span className="input-group-text" id="description-addon"><i
+                            className="bi bi-card-text"></i></span>
+                        <input type="text" className="form-control"
+                               name="category-description" placeholder="Опис"
+                               aria-label="Опис" aria-describedby="description-addon"/>
+                    </div>
+                </div>
+            </div>
+            <div className="row">
+                <div className="col col-6">
+                    <div className="input-group mb-3">
+                        <label className="input-group-text" htmlFor="category-image"><i
+                            className="bi bi-card-image"></i></label>
+                        <input type="file" className="form-control" name="category-image" id="category-image"/>
+                    </div>
+                </div>
+                <div className="col col-6">
+                    <div className="input-group mb-3">
+                        <span className="input-group-text" id="slug-addon"><i className="bi bi-link"></i></span>
+                        <input type="text" className="form-control"
+                               name="category-slug" placeholder="Slug"
+                               aria-label="Slug" aria-describedby="slug-addon"/>
+                    </div>
+                </div>
+            </div>
+            <div className="row">
+                <div className="col col-6">
+                    <button type="submit" className="btn btn-outline-success">Створити</button>
+                </div>
+                <div className="col col-6">
+                </div>
+            </div>
+        </form>
+        <hr/>
+    </div>;
+}
 function Signup() {
-    const {contextPath} = React.useContext(AppContext);
-    const formRef = React.useRef();
-    const onFormSubmit = React.useCallback( e => {
+    const {contextPath} = React.useContext(AppContext), formRef = React.useRef(), onFormSubmit = React.useCallback(e => {
         e.preventDefault();
         const formData = new FormData(e.target);
         fetch(`${contextPath}/auth`, {
@@ -249,8 +346,17 @@ function Home() {
     const {state, dispatch} = React.useContext(AppContext);
     return <div>
         <h2>Домашня</h2>
-        <b onClick={() => dispatch({type: "navigate", payload: "cart"})}>До Кошику</b>
+        {state.categories.map(c => <div
+            key={c.id} className="home-category"
+            onClick={() => dispatch({type: 'navigate', payload: 'category/' + c.id})}>
+            <h3>{c.name}</h3>
+            <picture><img src={"storage/" + c.imageUrl} alt="category"/></picture>
+            <p>{c.description}</p>
+        </div>)}
     </div>;
+}
+function Category({id}) {
+    return <div>Category page: {id}</div>;
 }
 const domRoot = document.getElementById("app-container");
 const cp = domRoot.getAttribute("data-context-path");

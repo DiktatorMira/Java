@@ -3,15 +3,13 @@ import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import com.google.inject.name.Named;
 import itstep.learning.dal.dao.AuthDao;
-import itstep.learning.dal.dao.ProductDao;
+import itstep.learning.dal.dao.shop.ProductDao;
 import itstep.learning.services.db.DbService;
-import oracle.jdbc.pool.OracleDataSource;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -45,10 +43,9 @@ import java.sql.Statement;
                 stmt.close();
             } catch (SQLException e) { dbMessage += " " + e.getMessage(); }
 
-            req.setAttribute("hash", dbMessage);
-            req.setAttribute("body", "home.jsp");
-        } else req.setAttribute("body", "not_found.jsp");
-
+            req.setAttribute( "hash", dbMessage );
+            req.setAttribute( "body", "home.jsp" );
+        } else req.setAttribute( "body", "not_found.jsp" );
         req.getRequestDispatcher( "WEB-INF/views/_layout.jsp" ).forward(req, resp);
     }
 }
