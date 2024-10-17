@@ -9,31 +9,31 @@ const AppContext = React.createContext(null);
 
 function reducer( state, action ) {
     switch( action.type ) {
-        case 'authenticate' : {
+        case 'authenticate' :
             window.localStorage.setItem("auth-user", JSON.stringify(action.payload));
-            return { ...state, authUser: action.payload }
-        }
+            return { ...state, authUser: action.payload };
         case 'categories':
-            return { ...state,  categories: action.payload }
+            return { ...state, categories: action.payload };
         case 'logout' :
             window.localStorage.removeItem( "auth-user" );
-            return { ...state, authUser: null }
+            return { ...state, authUser: null };
         case 'navigate':
             window.location.hash = action.payload;
-            return { ...state, page: action.payload }
+            return { ...state, page: action.payload };
     }
 }
 function App({contextPath, homePath}) {
-    const [state, dispatch] = React.useReducer( reducer, initialState );
+    const [state, dispatch] = React.useReducer(reducer, initialState);
     const loadCategories = React.useCallback( () => {
         fetch(`${contextPath}/shop/category`)
         .then(r => r.json())
         .then(j => dispatch({type: 'categories', payload: j.data}));
     });
-    const checkHash = React.useCallback( () => {
+    const checkHash = React.useCallback(() => {
         let hash = window.location.hash;
-        if (hash.length > 1) dispatch( { type: "navigate", payload: hash.substring(1) } );
-    } ) ;
+        let path = ( hash.length > 1 ) ? hash.substring(1) : "home";
+        dispatch( { type: "navigate", payload: path } );
+    });
     React.useEffect( () => {
         let authUser = window.localStorage.getItem( "auth-user" );
         if (authUser) {
@@ -41,14 +41,14 @@ function App({contextPath, homePath}) {
             let token = authUser.token;
             if (token) {
                 let exp = new Date(token.exp);
-                if (exp < new Date()) dispatch({ type: 'logout' });
-                else dispatch({type: 'authenticate', payload: authUser});
+                if (exp < new Date()) dispatch({type: 'logout'});
+                else dispatch({ type: 'authenticate', payload: authUser });
             }
         }
         checkHash();
         window.addEventListener('hashchange', checkHash);
         loadCategories();
-        return () => { window.removeEventListener('hashchange', checkHash); }
+        return () => { window.removeEventListener('hashchange', checkHash); };
     }, [] );
     return <AppContext.Provider value={{state, dispatch, contextPath, loadCategories}}>
         <header>
@@ -92,6 +92,7 @@ function App({contextPath, homePath}) {
                             <img src={"storage/" + state.authUser.avatarUrl}
                                  alt={state.authUser.userName}
                                  className="nav-avatar"/>
+
                             <button type="button" className="btn btn-outline-warning"
                                     onClick={() => dispatch({type: 'logout'}) }>
                                 <i className="bi bi-box-arrow-right"></i>
@@ -113,6 +114,7 @@ function App({contextPath, homePath}) {
             { state.page === 'home'   && <Home/>   }
             { state.page === 'signup' && <Signup/> }
             { state.page.startsWith('category/') && <Category id={state.page.substring(9)}/> }
+            { state.page.startsWith('product/') && <Product id={state.page.substring(8)}/> }
         </main>
         <div className="spacer"></div>
         <AuthModal />
@@ -121,10 +123,12 @@ function App({contextPath, homePath}) {
 }
 function Admin() {
     const {state, dispatch, contextPath, loadCategories} = React.useContext(AppContext);
-    React.useEffect( () => {
-        if(!state.authUser || !state.authUser.role || !state.authUser.role.canCreate) dispatch({type: 'navigate', payload: 'home'});
-    }, [] );
-    const categoryFormRef = React.useRef(), onCategorySubmit = React.useCallback(e => {
+    React.useEffect(() => {
+        if (!state.authUser || !state.authUser.role || !state.authUser.role.canCreate) dispatch({type: 'navigate', payload: 'home'});
+    }, []);
+    const categoryFormRef = React.useRef();
+    const productFormRef = React.useRef();
+    const onCategorySubmit = React.useCallback(e => {
         e.preventDefault();
         const formData = new FormData(e.target);
         fetch(`${contextPath}/shop/category`, {
@@ -135,6 +139,19 @@ function Admin() {
                 alert("Категорія успішно створена");
                 categoryFormRef.current.reset();
                 loadCategories();
+            } else alert(j.data);
+        });
+    });
+    const onProductSubmit = React.useCallback(e => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        fetch(`${contextPath}/shop/product`, {
+            method: "POST",
+            body: formData
+        }).then(r => r.json()).then(j => {
+            if (j.status.isSuccessful) {
+                alert("Товар успішно створений");
+                productFormRef.current.reset();
             } else alert(j.data);
         });
     });
@@ -182,9 +199,81 @@ function Admin() {
             </div>
             <div className="row">
                 <div className="col col-6">
-                    <button type="submit" className="btn btn-outline-success">Створити</button>
+
                 </div>
                 <div className="col col-6">
+                    <button type="submit" className="btn btn-outline-success">Створити</button>
+                </div>
+            </div>
+        </form>
+        <hr/>
+        <h2>Створення товарів</h2>
+        <form encType="multipart/form-data" method="POST"
+              onSubmit={onProductSubmit} ref={productFormRef}>
+            <div className="row">
+                <div className="col col-6">
+                    <div className="input-group mb-3">
+                        <span className="input-group-text" id="product-name-addon"><i className="bi bi-info-square"></i></span>
+                        <input type="text" className="form-control"
+                               name="product-name" placeholder="Назва"
+                               aria-label="Назва" aria-describedby="product-name-addon"/>
+                    </div>
+                </div>
+                <div className="col col-6">
+                    <div className="input-group mb-3">
+                        <span className="input-group-text" id="product-description-addon"><i
+                            className="bi bi-card-text"></i></span>
+                        <input type="text" className="form-control"
+                               name="product-description" placeholder="Опис"
+                               aria-label="Опис" aria-describedby="product-description-addon"/>
+                    </div>
+                </div>
+            </div>
+            <div className="row">
+                <div className="col col-6">
+                    <div className="input-group mb-3">
+                        <label className="input-group-text" htmlFor="product-image"><i
+                            className="bi bi-card-image"></i></label>
+                        <input type="file" className="form-control" name="product-image" id="product-image"/>
+                    </div>
+                </div>
+                <div className="col col-6">
+                    <div className="input-group mb-3">
+                        <span className="input-group-text" id="product-slug-addon"><i className="bi bi-link"></i></span>
+                        <input type="text" className="form-control"
+                               name="product-slug" placeholder="Slug"
+                               aria-label="Slug" aria-describedby="product-slug-addon"/>
+                    </div>
+                </div>
+            </div>
+            <div className="row">
+                <div className="col col-6">
+                    <div className="input-group mb-3">
+                        <span className="input-group-text" id="product-price-addon"><i
+                            className="bi bi-cash"></i></span>
+                        <input type="number" step="0.01" className="form-control"
+                               name="product-price" placeholder="Ціна"
+                               aria-label="Ціна" aria-describedby="product-price-addon"/>
+                    </div>
+                </div>
+                <div className="col col-6">
+                    <select name="category-id" className="form-select" aria-label="Вибір категорії">
+                        {state.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                </div>
+            </div>
+            <div className="row">
+                <div className="col col-6">
+                    <div className="input-group mb-3">
+                        <span className="input-group-text" id="product-quantity-addon"><i
+                            className="bi bi-1-circle"></i></span>
+                        <input type="number" step="1" className="form-control" defaultValue="1"
+                               name="product-quantity" placeholder="Кількість"
+                               aria-label="Кількість" aria-describedby="product-quantity-addon"/>
+                    </div>
+                </div>
+                <div className="col col-6">
+                    <button type="submit" className="btn btn-outline-success">Створити</button>
                 </div>
             </div>
         </form>
@@ -192,7 +281,9 @@ function Admin() {
     </div>;
 }
 function Signup() {
-    const {contextPath} = React.useContext(AppContext), formRef = React.useRef(), onFormSubmit = React.useCallback(e => {
+    const {contextPath} = React.useContext(AppContext);
+    const formRef = React.useRef();
+    const onFormSubmit = React.useCallback(e => {
         e.preventDefault();
         const formData = new FormData(e.target);
         fetch(`${contextPath}/auth`, {
@@ -295,7 +386,9 @@ function AuthModal() {
         console.log(login, password);
         fetch(`${contextPath}/auth`, {
             method: 'GET',
-            headers: { 'Authorization': 'Basic ' + btoa(login + ':' + password) }
+            headers: {
+                'Authorization': 'Basic ' + btoa(login + ':' + password)
+            }
         }).then(r => r.json()).then(j => {
             console.log(j);
             if (j.status.isSuccessful) {
@@ -348,7 +441,7 @@ function Home() {
         <h2>Домашня</h2>
         {state.categories.map(c => <div
             key={c.id} className="home-category"
-            onClick={() => dispatch({type: 'navigate', payload: 'category/' + c.id})}>
+            onClick={() => dispatch({type: 'navigate', payload: 'category/' + (c.slug || c.id) })}>
             <h3>{c.name}</h3>
             <picture><img src={"storage/" + c.imageUrl} alt="category"/></picture>
             <p>{c.description}</p>
@@ -356,7 +449,30 @@ function Home() {
     </div>;
 }
 function Category({id}) {
-    return <div>Category page: {id}</div>;
+    const { contextPath, dispatch } = React.useContext(AppContext);
+    const [products, setProducts] = React.useState([]);
+    React.useEffect( () => {
+        fetch(`${contextPath}/shop/product?category=${id}`)
+            .then(r => r.json())
+            .then(j => {
+                if (j.status.isSuccessful) setProducts(j.data);
+                else console.error(j.data);
+            });
+    }, [id]);
+    const cartClick = React.useCallback( e => { e.stopPropagation(); });
+    return <div>
+        <h2>Category page: {id}</h2>
+        {products.map(p => <div key={p.id} className="product-card" onClick={() => dispatch({type: 'navigate', payload: 'product/' + (p.slug || p.id) })}>
+            <picture><img src={"storage/" + p.imageUrl} alt="product"/></picture>
+            <h3>{p.name}</h3>
+            <p>{p.description}</p>
+            <h4>₴ {p.price.toFixed(2)}</h4>
+            <span className="cart-fab" onClick={cartClick}><i className="bi bi-bag-check"></i></span>
+        </div>)}
+    </div>;
+}
+function Product({id}) {
+    return <div><h2>Product page: {id}</h2></div>
 }
 const domRoot = document.getElementById("app-container");
 const cp = domRoot.getAttribute("data-context-path");
