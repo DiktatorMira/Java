@@ -14,6 +14,7 @@ public class Product {
     private int quantity;
     private Category category;
     private List<String> imageUrls;
+    private List<Product> similarProducts;
 
     public Product() {}
     public Product(ResultSet rs) throws SQLException {
@@ -33,6 +34,8 @@ public class Product {
     }
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
+    public List<Product> getSimilarProducts() { return similarProducts; }
+    public void setSimilarProducts(List<Product> similarProducts) { this.similarProducts = similarProducts; }
     public UUID getCategoryId() { return categoryId; }
     public void setCategoryId(UUID categoryId) { this.categoryId = categoryId; }
     public String getName() { return name; }

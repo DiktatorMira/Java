@@ -23,26 +23,34 @@ function reducer( state, action ) {
     }
 }
 function App({contextPath, homePath}) {
-    const [state, dispatch] = React.useReducer(reducer, initialState);
+    const [state, dispatch] = React.useReducer( reducer, initialState );
     const loadCategories = React.useCallback( () => {
         fetch(`${contextPath}/shop/category`)
         .then(r => r.json())
         .then(j => dispatch({type: 'categories', payload: j.data}));
     });
-    const checkHash = React.useCallback(() => {
+    const checkHash = React.useCallback( () => {
         let hash = window.location.hash;
         let path = ( hash.length > 1 ) ? hash.substring(1) : "home";
         dispatch( { type: "navigate", payload: path } );
-    });
+    } ) ;
+    const request = React.useCallback( (url, params) => new Promise( (resolve, reject) => {
+        if(url.startsWith('/')) url = contextPath + url;
+        fetch( url, params )
+            .then(r => r.json()).then(j => {
+                if (j.status.isSuccessful) resolve( j.data );
+                else reject( j.data );
+            });
+    } ) );
     React.useEffect( () => {
         let authUser = window.localStorage.getItem( "auth-user" );
         if (authUser) {
-            authUser = JSON.parse(authUser);
+            authUser = JSON.parse( authUser );
             let token = authUser.token;
             if (token) {
                 let exp = new Date(token.exp);
-                if (exp < new Date()) dispatch({type: 'logout'});
-                else dispatch({ type: 'authenticate', payload: authUser });
+                if (exp < new Date())  dispatch({ type: 'logout' });
+                else dispatch({type: 'authenticate', payload: authUser});
             }
         }
         checkHash();
@@ -50,7 +58,7 @@ function App({contextPath, homePath}) {
         loadCategories();
         return () => { window.removeEventListener('hashchange', checkHash); };
     }, [] );
-    return <AppContext.Provider value={{state, dispatch, contextPath, loadCategories}}>
+    return <AppContext.Provider value={{state, dispatch, contextPath, loadCategories, request}}>
         <header>
             <nav className="navbar navbar-expand-lg bg-body-tertiary">
                 <div className="container-fluid">
@@ -92,7 +100,6 @@ function App({contextPath, homePath}) {
                             <img src={"storage/" + state.authUser.avatarUrl}
                                  alt={state.authUser.userName}
                                  className="nav-avatar"/>
-
                             <button type="button" className="btn btn-outline-warning"
                                     onClick={() => dispatch({type: 'logout'}) }>
                                 <i className="bi bi-box-arrow-right"></i>
@@ -123,9 +130,9 @@ function App({contextPath, homePath}) {
 }
 function Admin() {
     const {state, dispatch, contextPath, loadCategories} = React.useContext(AppContext);
-    React.useEffect(() => {
+    React.useEffect( () => {
         if (!state.authUser || !state.authUser.role || !state.authUser.role.canCreate) dispatch({type: 'navigate', payload: 'home'});
-    }, []);
+    }, [] );
     const categoryFormRef = React.useRef();
     const productFormRef = React.useRef();
     const onCategorySubmit = React.useCallback(e => {
@@ -199,7 +206,6 @@ function Admin() {
             </div>
             <div className="row">
                 <div className="col col-6">
-
                 </div>
                 <div className="col col-6">
                     <button type="submit" className="btn btn-outline-success">Створити</button>
@@ -386,9 +392,7 @@ function AuthModal() {
         console.log(login, password);
         fetch(`${contextPath}/auth`, {
             method: 'GET',
-            headers: {
-                'Authorization': 'Basic ' + btoa(login + ':' + password)
-            }
+            headers: { 'Authorization': 'Basic ' + btoa(login + ':' + password) }
         }).then(r => r.json()).then(j => {
             console.log(j);
             if (j.status.isSuccessful) {
@@ -455,11 +459,13 @@ function Category({id}) {
         fetch(`${contextPath}/shop/product?category=${id}`)
             .then(r => r.json())
             .then(j => {
-                if (j.status.isSuccessful) setProducts(j.data);
+                if(j.status.isSuccessful) setProducts(j.data);
                 else console.error(j.data);
             });
     }, [id]);
-    const cartClick = React.useCallback( e => { e.stopPropagation(); });
+    const cartClick = React.useCallback( e => {
+        e.stopPropagation();
+    });
     return <div>
         <h2>Category page: {id}</h2>
         {products.map(p => <div key={p.id} className="product-card" onClick={() => dispatch({type: 'navigate', payload: 'product/' + (p.slug || p.id) })}>
@@ -472,7 +478,53 @@ function Category({id}) {
     </div>;
 }
 function Product({id}) {
-    return <div><h2>Product page: {id}</h2></div>
+    const {request, dispatch} = React.useContext(AppContext);
+    const [product, setProduct] = React.useState({});
+    React.useEffect( () => {
+        request('/shop/product?id=' + id).then( setProduct ).catch( console.error );
+    }, [id] );
+    const cartClick = React.useCallback( e => {
+        e.stopPropagation();
+    });
+    return <div>
+        <h2>Сторінка товару</h2>
+        {product.id && <div>
+            <div className="row">
+                <div className="col col-5">
+                    <div className="product-page-left">
+                        <picture><img src={"storage/" + product.imageUrl} alt="product"/></picture>
+                    </div>
+                </div>
+                <div className="col col-7">
+                    <h3>{product.name}</h3>
+                    <p>{product.description}</p>
+                    <h4>{product.price.toFixed(2)}</h4>
+                    <button>До кошику</button>
+                    <hr/>
+                    <h5>Вас також може зацікавити:</h5>
+                    {product.similarProducts && product.similarProducts.map(p =>
+                        <ProductCard p={p} isSmall={true} key={p.id} /> )}
+                </div>
+            </div>
+        </div>
+        }{!product.id && <div>
+        Не знайдено
+    </div>}
+    </div>;
+}
+function ProductCard({p, isSmall}) {
+    const {dispatch} = React.useContext(AppContext);
+    const cartClick = React.useCallback( e => {
+        e.stopPropagation();
+    });
+    return <div key={p.id} className={"product-card " + (isSmall ? "scale-75" : "") }
+                onClick={() => dispatch({type: 'navigate', payload: 'product/' + (p.slug || p.id)})}>
+        <picture><img src={"storage/" + p.imageUrl} alt="product"/></picture>
+        <h3>{p.name}</h3>
+        <p>{p.description}</p>
+        <h4>₴ {p.price.toFixed(2)}</h4>
+        <span className="cart-fab" onClick={cartClick}><i className="bi bi-bag-check"></i></span>
+    </div>
 }
 const domRoot = document.getElementById("app-container");
 const cp = domRoot.getAttribute("data-context-path");

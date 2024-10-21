@@ -30,78 +30,108 @@ import java.util.logging.Logger;
         this.productDao = productDao;
     }
     @Override protected void service(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        super.restResponse = new RestResponse().setMeta(new RestMetaData()
-            .setUri("/shop/product")
-            .setMethod(req.getMethod())
-            .setName("KN-P-213 Shop API for products")
-            .setServerTime(new Date())
-            .setAllowedMethods(new String[]{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
-        );
+        super.restResponse = new RestResponse()
+            .setMeta( new RestMetaData()
+                .setUri( "/shop/product" )
+                .setMethod( req.getMethod() )
+                .setName( "KN-P-213 Shop API for products" )
+                .setServerTime( new Date() )
+                .setAllowedMethods( new String[]{"GET", "POST", "PUT", "DELETE", "OPTIONS"} )
+            );
         super.service(req, resp);
     }
     @Override protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        String category = req.getParameter("category");
-        if (category == null || category.isEmpty()) {
-            super.sendResponse(400, "Missing required field 'category' ");
+        String id = req.getParameter( "id" );
+        if (id != null) {
+            this.getById(id);
             return;
         }
+        String category = req.getParameter( "category" );
+        if (category != null) {
+            this.getByCategory(category);
+            return;
+        }
+        super.sendResponse( 400, "Missing required field: 'category' or 'id' " );
+    }
+    private void getById( String id ) throws IOException {
+        super.sendResponse( 200, productDao.getByIdOrSlug( id, true ) );
+    }
+    private void getByCategory( String category ) throws IOException {
         super.sendResponse( 200, productDao.read( category ) );
     }
     @Override protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         Product product;
         try { product = parseProduct(req); }
-        catch (Exception ex) {
-            super.sendResponse(400, ex.getMessage());
+        catch( Exception ex ) {
+            super.sendResponse( 400, ex.getMessage() );
             return;
         }
-        if ((product = productDao.create(product)) != null) super.sendResponse(201, product);
+        if((product = productDao.create(product)) != null) super.sendResponse(201, product);
         else super.sendResponse(500, "Error creating product");
     }
     private Product parseProduct( HttpServletRequest req ) throws Exception {
         FormParseResult formParseResult = formParseService.parse( req );
         Product product = new Product();
-
-        String data = formParseResult.getFields().get("product-name");
-        if (data == null || data.isEmpty()) throw new Exception("Missing required field 'product-name'");
+        String data = formParseResult.getFields().get( "product-name" );
+        if (data == null || data.isEmpty()) throw new Exception( "Missing required field 'product-name' " );
         product.setName(data);
 
         data = formParseResult.getFields().get( "product-description" );
-        if (data == null || data.isEmpty()) throw new Exception("Missing required field 'product-description' ");
-        product.setDescription( data );
+        if( data == null || data.isEmpty() ) throw new Exception( "Missing required field 'product-description' " );
+        product.setDescription(data);
+
 
         data = formParseResult.getFields().get( "category-id" );
-        if (data == null || data.isEmpty()) throw new Exception("Missing required field 'category-id' ");
-        try { product.setCategoryId(UUID.fromString(data)); }
-        catch (IllegalArgumentException ignored) {
+        if( data == null || data.isEmpty() ) {
+            throw new Exception( "Missing required field 'category-id' " );
+        }
+        try {
+            product.setCategoryId( UUID.fromString(data) );
+        }
+        catch( IllegalArgumentException ignored ) {
             throw new Exception( "Required field 'category-id' has invalid format" );
         }
 
         data = formParseResult.getFields().get( "product-price" );
-        if (data == null || data.isEmpty()) throw new Exception("Missing required field 'product-price' ");
-        try { product.setPrice(Double.parseDouble(data)); }
-        catch (NumberFormatException ignored) {
-            throw new Exception("Required field 'product-price' has invalid format");
-        }
-
-        data = formParseResult.getFields().get("product-quantity");
-        if (data == null || data.isEmpty()) product.setQuantity(1);
-        else try { product.setQuantity( Integer.parseInt(data)); }
-        catch (NumberFormatException ignored) {
-            throw new Exception("Required field 'product-quantity' has invalid format");
-        }
-
-        data = formParseResult.getFields().get("product-slug");
-        if (data != null && !data.isEmpty()) {
-            if (!productDao.isSlugFree(data)) throw new Exception("Value of 'product-slug' is not free ");
-            product.setSlug( data );
+        if( data == null || data.isEmpty() ) {
+            throw new Exception( "Missing required field 'product-price' " );
         }
         try {
-            data = storageService.saveFile(formParseResult.getFiles().get("product-image"));
-        } catch (IOException ex) {
-            logger.warning(ex.getMessage());
-            throw new Exception("Error processing 'product-image'");
+            product.setPrice( Double.parseDouble( data ) );
+        }
+        catch( NumberFormatException ignored ) {
+            throw new Exception( "Required field 'product-price' has invalid format" );
+        }
+
+        data = formParseResult.getFields().get( "product-quantity" );
+        if( data == null || data.isEmpty() ) {
+            product.setQuantity( 1 );
+        }
+        else try {
+            product.setQuantity( Integer.parseInt( data ) );
+        }
+        catch( NumberFormatException ignored ) {
+            throw new Exception( "Required field 'product-quantity' has invalid format" );
+        }
+
+        data = formParseResult.getFields().get( "product-slug" );
+        if( data != null && !data.isEmpty() ) {
+            if( ! productDao.isSlugFree( data ) ) {
+                throw new Exception( "Value of 'product-slug' is not free " );
+            }
+            product.setSlug( data );
+        }
+
+        try {
+            data = storageService.saveFile(
+                    formParseResult.getFiles().get( "product-image" ) );
+        }
+        catch( IOException ex ) {
+            logger.warning( ex.getMessage() );
+            throw new Exception( "Error processing 'product-image'" );
         }
         product.setImageUrl( data );
+
         return product;
     }
 }
