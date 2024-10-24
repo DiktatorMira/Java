@@ -15,8 +15,8 @@ function reducer( state, action ) {
         case 'categories':
             return { ...state, categories: action.payload };
         case 'logout' :
-            window.localStorage.removeItem( "auth-user" );
-            return { ...state, authUser: null };
+            window.localStorage.removeItem("auth-user");
+            return { ...state,  authUser: null };
         case 'navigate':
             window.location.hash = action.payload;
             return { ...state, page: action.payload };
@@ -35,13 +35,18 @@ function App({contextPath, homePath}) {
         dispatch( { type: "navigate", payload: path } );
     } ) ;
     const request = React.useCallback( (url, params) => new Promise( (resolve, reject) => {
-        if(url.startsWith('/')) url = contextPath + url;
-        fetch( url, params )
+        if (url.startsWith('/')) url = contextPath + url;
+        if (state.authUser && state.authUser.token && state.authUser.token.tokenId) {
+            if (typeof params === 'undefined' || params == null) params = {};
+            if (typeof params.headers === 'undefined') params.headers = {};
+            if (typeof params.headers.Authorization === 'undefined') params.headers.Authorization = "Bearer " + state.authUser.token.tokenId;
+        }
+        fetch(url, params)
             .then(r => r.json()).then(j => {
-                if (j.status.isSuccessful) resolve( j.data );
-                else reject( j.data );
+                if (j.status.isSuccessful) { resolve( j.data ); }
+                else { reject( j.data ); }
             });
-    } ) );
+    }));
     React.useEffect( () => {
         let authUser = window.localStorage.getItem( "auth-user" );
         if (authUser) {
@@ -49,8 +54,8 @@ function App({contextPath, homePath}) {
             let token = authUser.token;
             if (token) {
                 let exp = new Date(token.exp);
-                if (exp < new Date())  dispatch({ type: 'logout' });
-                else dispatch({type: 'authenticate', payload: authUser});
+                if (exp < new Date()) dispatch({type: 'logout'});
+                else dispatch({ type: 'authenticate', payload: authUser });
             }
         }
         checkHash();
@@ -130,9 +135,9 @@ function App({contextPath, homePath}) {
 }
 function Admin() {
     const {state, dispatch, contextPath, loadCategories} = React.useContext(AppContext);
-    React.useEffect( () => {
-        if (!state.authUser || !state.authUser.role || !state.authUser.role.canCreate) dispatch({type: 'navigate', payload: 'home'});
-    }, [] );
+    React.useEffect(() => {
+        if(!state.authUser || !state.authUser.role || !state.authUser.role.canCreate) dispatch({type: 'navigate', payload: 'home'});
+    }, []);
     const categoryFormRef = React.useRef();
     const productFormRef = React.useRef();
     const onCategorySubmit = React.useCallback(e => {
@@ -163,8 +168,7 @@ function Admin() {
         });
     });
     return <div>
-        <h1>Панель адміністрування</h1>
-        <hr/>
+        <h1>Панель адміністрування</h1><hr/>
         <h2>Створення товарних категорій</h2>
         <form encType="multipart/form-data" method="POST"
               onSubmit={onCategorySubmit} ref={categoryFormRef}>
@@ -205,8 +209,7 @@ function Admin() {
                 </div>
             </div>
             <div className="row">
-                <div className="col col-6">
-                </div>
+                <div className="col col-6"></div>
                 <div className="col col-6">
                     <button type="submit" className="btn btn-outline-success">Створити</button>
                 </div>
@@ -453,7 +456,7 @@ function Home() {
     </div>;
 }
 function Category({id}) {
-    const { contextPath, dispatch } = React.useContext(AppContext);
+    const { contextPath, dispatch, request } = React.useContext(AppContext);
     const [products, setProducts] = React.useState([]);
     React.useEffect( () => {
         fetch(`${contextPath}/shop/product?category=${id}`)
@@ -463,17 +466,21 @@ function Category({id}) {
                 else console.error(j.data);
             });
     }, [id]);
-    const cartClick = React.useCallback( e => {
+    const cartClick = React.useCallback( (e, product) => {
         e.stopPropagation();
+        request('/shop/cart?product-id=' + product.id, {
+            method: 'POST'
+        }).then(console.log).catch(console.error);
     });
     return <div>
         <h2>Category page: {id}</h2>
-        {products.map(p => <div key={p.id} className="product-card" onClick={() => dispatch({type: 'navigate', payload: 'product/' + (p.slug || p.id) })}>
+        {products.map(p => <div key={p.id} className="product-card"
+                                onClick={() => dispatch({type: 'navigate', payload: 'product/' + (p.slug || p.id) })}>
             <picture><img src={"storage/" + p.imageUrl} alt="product"/></picture>
             <h3>{p.name}</h3>
             <p>{p.description}</p>
             <h4>₴ {p.price.toFixed(2)}</h4>
-            <span className="cart-fab" onClick={cartClick}><i className="bi bi-bag-check"></i></span>
+            <span className="cart-fab" onClick={(e) => cartClick(e, p)}><i className="bi bi-bag-check"></i></span>
         </div>)}
     </div>;
 }
@@ -481,11 +488,9 @@ function Product({id}) {
     const {request, dispatch} = React.useContext(AppContext);
     const [product, setProduct] = React.useState({});
     React.useEffect( () => {
-        request('/shop/product?id=' + id).then( setProduct ).catch( console.error );
+        request('/shop/product?id=' + id).then(setProduct).catch( console.error );
     }, [id] );
-    const cartClick = React.useCallback( e => {
-        e.stopPropagation();
-    });
+    const cartClick = React.useCallback( e => { e.stopPropagation(); });
     return <div>
         <h2>Сторінка товару</h2>
         {product.id && <div>
@@ -514,9 +519,7 @@ function Product({id}) {
 }
 function ProductCard({p, isSmall}) {
     const {dispatch} = React.useContext(AppContext);
-    const cartClick = React.useCallback( e => {
-        e.stopPropagation();
-    });
+    const cartClick = React.useCallback( e => { e.stopPropagation(); });
     return <div key={p.id} className={"product-card " + (isSmall ? "scale-75" : "") }
                 onClick={() => dispatch({type: 'navigate', payload: 'product/' + (p.slug || p.id)})}>
         <picture><img src={"storage/" + p.imageUrl} alt="product"/></picture>

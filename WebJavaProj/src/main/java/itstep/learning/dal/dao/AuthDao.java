@@ -21,9 +21,27 @@ import java.util.logging.Logger;
         this.logger = logger;
         this.kdfService = kdfService;
     }
-    public User signUp(SignupFormModel model) {
-        if (model == null) return null;
+    public User getUserByToken( String token ) {
+        UUID tokenId;
+        try{ tokenId = UUID.fromString(token); }
+        catch( Exception ignored ) { return null; }
+        String sql = "SELECT * FROM users_access a " +
+                " JOIN users u ON a.user_id = u.user_id " +
+                " JOIN users_roles r ON a.role_id = r.role_id " +
+                " JOIN tokens t ON u.user_id = t.user_id AND t.exp > CURRENT_TIMESTAMP" +
+                " WHERE t.token_id = ?";
+        try( PreparedStatement prep = dbService.getConnection().prepareStatement(sql) ) {
+            prep.setString( 1, tokenId.toString() );
+            ResultSet rs = prep.executeQuery();
+            if( rs.next() ) return new User( rs );
+        } catch( SQLException ex ) {
+            logger.warning( ex.getMessage() + " -- " + sql );
+        }
+        return null;
+    }
 
+    public User signUp( SignupFormModel model ) {
+        if( model == null ) return null;
         User user = new User();
         user.setUserId( UUID.randomUUID() );
         user.setUserName( model.getName() );
@@ -31,11 +49,10 @@ import java.util.logging.Logger;
         user.setPhone( model.getPhone() );
         user.setBirthdate( model.getBirthdate() );
         user.setAvatarUrl( model.getAvatar() );
-
         String sql = "INSERT INTO `users` " +
                 "(`user_id`, `user_name`, `email`, `phone`, `avatar_url`, `birthdate`) " +
                 "VALUES(?,?,?,?,?,?)";
-        try (PreparedStatement prep = dbService.getConnection().prepareStatement(sql)) {
+        try( PreparedStatement prep = dbService.getConnection().prepareStatement( sql ) ) {
             prep.setString( 1, user.getUserId().toString() );
             prep.setString( 2, user.getUserName() );
             prep.setString( 3, user.getEmail() );
@@ -43,72 +60,72 @@ import java.util.logging.Logger;
             prep.setString( 5, user.getAvatarUrl() );
             prep.setTimestamp( 6, new Timestamp( user.getBirthdate().getTime() ) );
             prep.executeUpdate();
-        } catch (SQLException ex) {
+        } catch( SQLException ex ) {
             logger.warning( ex.getMessage() + " -- " + sql );
             return null;
         }
 
-        String salt = UUID.randomUUID().toString().substring(0, 16), password = model.getPassword(), dk = kdfService.dk( password, salt );
+        String salt = UUID.randomUUID().toString().substring(0, 16), password = model.getPassword();
+        String dk = kdfService.dk( password, salt );
         sql = "INSERT INTO `users_access`(`user_id`, `login`, `salt`, `dk`) " +
                 "VALUES (?, ?, ?, ?) ";
-        try (PreparedStatement prep = dbService.getConnection().prepareStatement(sql)) {
+        try( PreparedStatement prep = dbService.getConnection().prepareStatement( sql ) ) {
             prep.setString( 1, user.getUserId().toString() );
             prep.setString( 2, model.getLogin() );
             prep.setString( 3, salt );
             prep.setString( 4, dk );
             prep.executeUpdate();
-        } catch (SQLException ex) {
+        } catch( SQLException ex ) {
             logger.warning( ex.getMessage() + " -- " + sql );
             return null;
         }
         return user;
     }
-    public User authenticate(String login, String password) {
+    public User authenticate( String login, String password ) {
         String sql = "SELECT * FROM users_access a " +
                 " JOIN users u ON a.user_id = u.user_id " +
                 " JOIN users_roles r ON a.role_id = r.role_id " +
                 " LEFT JOIN tokens t ON u.user_id = t.user_id AND t.exp > CURRENT_TIMESTAMP " +
                 " WHERE a.login = ? ";
-        try (PreparedStatement prep = dbService.getConnection().prepareStatement(sql)) {
+        try( PreparedStatement prep = dbService.getConnection().prepareStatement( sql ) ) {
             prep.setString( 1, login );
             ResultSet rs = prep.executeQuery();
-
-            if (rs.next()) {
-                String salt = rs.getString("salt"), dk = rs.getString("dk");
-                if (kdfService.dk(password, salt).equals(dk)) {
-                    User user = new User(rs);
-                    Token token;
+            if( rs.next() ) {
+                String salt = rs.getString( "salt" ), dk = rs.getString( "dk"   );
+                if( kdfService.dk( password, salt ).equals( dk ) ) {
+                    User user = new User( rs );
+                    Token token ;
                     try { token = new Token( rs ); }
-                    catch (SQLException ignored) { token = null; }
+                    catch( SQLException ignored ) { token = null; }
 
-                    if (token == null) token = this.createToken( user );
+                    if( token == null ) token = this.createToken( user );
                     user.setToken( token );
                     return user;
                 }
             }
-        } catch (SQLException ex) {
-            logger.warning(ex.getMessage() + " -- " + sql);
+        } catch( SQLException ex ) {
+            logger.warning( ex.getMessage() + " -- " + sql );
         }
         return null;
     }
-    public Token createToken(User user) {
+    public Token createToken( User user ) {
         Token token = new Token();
         token.setTokenId( UUID.randomUUID() );
         token.setUserId( user.getUserId() );
         token.setIat( new Date( System.currentTimeMillis() ) );
-        token.setExp( new Date( System.currentTimeMillis() + 60000 ) );
+        token.setExp( new Date( System.currentTimeMillis() + 86400000 ) );
 
         String sql = "INSERT INTO tokens ( token_id, user_id, iat, exp ) " +
                 " VALUES ( ?, ?, ?, ? )";
-        try (PreparedStatement prep = dbService.getConnection().prepareStatement(sql)) {
+        try( PreparedStatement prep = dbService.getConnection().prepareStatement( sql ) ) {
             prep.setString( 1, token.getTokenId().toString() );
             prep.setString( 2, token.getUserId().toString() );
             prep.setTimestamp( 3, new Timestamp( token.getIat().getTime() ) );
             prep.setTimestamp( 4, new Timestamp( token.getExp().getTime() ) );
             prep.executeUpdate();
             return token;
-        } catch (SQLException ex) {
-            logger.warning(ex.getMessage() + " -- " + sql);
+        } catch( SQLException ex ) {
+            logger.warning( ex.getMessage() + " -- " + sql );
         }
         return null;
     }
@@ -122,13 +139,12 @@ import java.util.logging.Logger;
                 "`birthdate`   DATETIME     NOT NULL," +
                 "`delete_dt`   DATETIME         NULL" +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
-        try (Statement stmt = dbService.getConnection().createStatement()) {
-            stmt.executeUpdate(sql) ;
-        } catch (SQLException ex) {
-            logger.warning(ex.getMessage() + " -- " + sql);
+        try( Statement stmt = dbService.getConnection().createStatement() ) {
+            stmt.executeUpdate( sql ) ;
+        } catch( SQLException ex ) {
+            logger.warning( ex.getMessage() + " -- " + sql );
             return false;
         }
-
         sql = "CREATE TABLE  IF NOT EXISTS `users_access` (" +
                 "`access_id` CHAR(36)     PRIMARY KEY  DEFAULT( UUID() )," +
                 "`user_id`   CHAR(36)     NOT NULL," +
@@ -138,11 +154,10 @@ import java.util.logging.Logger;
                 "`role_id`   CHAR(36)     NOT NULL DEFAULT 'acffa6f6-89f9-11ef-a6bd-6f31a5ab6a0f'," +
                 "`is_active` TINYINT      DEFAULT 1" +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
-
-        try (Statement stmt = dbService.getConnection().createStatement()) {
-            stmt.executeUpdate(sql) ;
-        } catch (SQLException ex) {
-            logger.warning(ex.getMessage() + " -- " + sql);
+        try( Statement stmt = dbService.getConnection().createStatement() ) {
+            stmt.executeUpdate( sql ) ;
+        } catch( SQLException ex ) {
+            logger.warning( ex.getMessage() + " -- " + sql );
             return false;
         }
 
@@ -154,10 +169,10 @@ import java.util.logging.Logger;
                 "`can_update` TINYINT      DEFAULT 0," +
                 "`can_delete` TINYINT      DEFAULT 0" +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
-        try (Statement stmt = dbService.getConnection().createStatement()) {
-            stmt.executeUpdate(sql);
-        } catch (SQLException ex) {
-            logger.warning(ex.getMessage() + " -- " + sql);
+        try( Statement stmt = dbService.getConnection().createStatement() ) {
+            stmt.executeUpdate( sql ) ;
+        } catch( SQLException ex ) {
+            logger.warning( ex.getMessage() + " -- " + sql );
             return false;
         }
 
@@ -167,32 +182,34 @@ import java.util.logging.Logger;
                 "`iat`      DATETIME   DEFAULT CURRENT_TIMESTAMP," +
                 "`exp`      DATETIME   NOT NULL" +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
-        try (Statement stmt = dbService.getConnection().createStatement()) {
-            stmt.executeUpdate( sql );
-        } catch (SQLException ex) {
-            logger.warning(ex.getMessage() + " -- " + sql);
+        try( Statement stmt = dbService.getConnection().createStatement() ) {
+            stmt.executeUpdate( sql ) ;
+        } catch( SQLException ex ) {
+            logger.warning( ex.getMessage() + " -- " + sql );
             return false;
         }
 
-        sql = "INSERT INTO `users_roles`(`role_id`,`role_name`,`can_create`,`can_read`,`can_update`,`can_delete`) " + "VALUES ('81661d9f-815d-11ef-bb48-fcfbf6dd7098','Administrator',1,1,1,1) " +
+        sql = "INSERT INTO `users_roles`(`role_id`,`role_name`,`can_create`,`can_read`,`can_update`,`can_delete`) " +
+                "VALUES ('81661d9f-815d-11ef-bb48-fcfbf6dd7098','Administrator',1,1,1,1) " +
                 "ON DUPLICATE KEY UPDATE " +
                 "`role_name` = 'Administrator', " +
                 "`can_create` = 1, `can_read` = 1,`can_update` = 1,`can_delete` = 1";
-        try (Statement stmt = dbService.getConnection().createStatement()) {
-            stmt.executeUpdate(sql);
-        } catch (SQLException ex) {
-            logger.warning(ex.getMessage() + " -- " + sql);
+        try( Statement stmt = dbService.getConnection().createStatement() ) {
+            stmt.executeUpdate( sql ) ;
+        } catch( SQLException ex ) {
+            logger.warning( ex.getMessage() + " -- " + sql );
             return false;
         }
 
-        sql = "INSERT INTO `users_roles`(`role_id`,`role_name`,`can_create`,`can_read`,`can_update`,`can_delete`) " + "VALUES ('acffa6f6-89f9-11ef-a6bd-6f31a5ab6a0f','Guest',0,1,0,0) " +
+        sql = "INSERT INTO `users_roles`(`role_id`,`role_name`,`can_create`,`can_read`,`can_update`,`can_delete`) " +
+                "VALUES ('acffa6f6-89f9-11ef-a6bd-6f31a5ab6a0f','Guest',0,1,0,0) " +
                 "ON DUPLICATE KEY UPDATE " +
                 "`role_name` = 'Guest', " +
                 "`can_create` = 0, `can_read` = 1,`can_update` = 0,`can_delete` = 0";
-        try (Statement stmt = dbService.getConnection().createStatement()) {
-            stmt.executeUpdate(sql);
-        } catch (SQLException ex) {
-            logger.warning(ex.getMessage() + " -- " + sql);
+        try( Statement stmt = dbService.getConnection().createStatement() ) {
+            stmt.executeUpdate( sql ) ;
+        } catch( SQLException ex ) {
+            logger.warning( ex.getMessage() + " -- " + sql );
             return false;
         }
 
@@ -203,10 +220,10 @@ import java.util.logging.Logger;
                 "`email` = 'admin@change.me', " +
                 "`birthdate` = '1970-01-01'," +
                 "`delete_dt` = NULL";
-        try (Statement stmt = dbService.getConnection().createStatement()) {
-            stmt.executeUpdate(sql);
-        } catch (SQLException ex) {
-            logger.warning(ex.getMessage() + " -- " + sql);
+        try( Statement stmt = dbService.getConnection().createStatement() ) {
+            stmt.executeUpdate( sql ) ;
+        } catch( SQLException ex ) {
+            logger.warning( ex.getMessage() + " -- " + sql );
             return false;
         }
 
@@ -223,14 +240,14 @@ import java.util.logging.Logger;
                 "`salt` = ?," +
                 "`dk` = ?," +
                 "`is_active` = 1";
-        try (PreparedStatement prep = dbService.getConnection().prepareStatement(sql)) {
-            prep.setString(1, salt);
-            prep.setString(2, dk);
-            prep.setString(3, salt);
-            prep.setString(4, dk);
+        try( PreparedStatement prep = dbService.getConnection().prepareStatement( sql ) ) {
+            prep.setString( 1, salt );
+            prep.setString( 2, dk );
+            prep.setString( 3, salt );
+            prep.setString( 4, dk );
             prep.executeUpdate();
-        } catch (SQLException ex) {
-            logger.warning(ex.getMessage() + " -- " + sql);
+        } catch( SQLException ex ) {
+            logger.warning( ex.getMessage() + " -- " + sql );
             return false;
         }
         return true;
