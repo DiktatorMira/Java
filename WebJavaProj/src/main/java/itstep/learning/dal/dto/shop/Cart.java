@@ -11,20 +11,22 @@ public class Cart {
     private Date createDt, closeDt;
     private int  status;
     private User user;
+    private CartItem[] cartItems;
 
     public Cart() {}
-    public Cart(ResultSet rs) throws SQLException {
+    public Cart( ResultSet rs ) throws SQLException {
         this.setId( UUID.fromString( rs.getString("cart_id") ) );
         this.setUserId( UUID.fromString( rs.getString("user_id") ) );
         Timestamp timestamp = rs.getTimestamp( "cart_create_dt" );
         this.setCreateDt( new Date( timestamp.getTime() ) );
         timestamp = rs.getTimestamp( "cart_close_dt" );
-
-        if ( timestamp != null ) this.setCloseDt( new Date( timestamp.getTime() ) );
+        if (timestamp != null) this.setCloseDt( new Date( timestamp.getTime() ) );
         this.setStatus( rs.getInt( "cart_status" ) );
         try { this.setUser( new User( rs ) ); }
         catch( Exception ignored ) {}
     }
+    public CartItem[] getCartItems() { return cartItems; }
+    public void setCartItems(CartItem[] cartItems) { this.cartItems = cartItems; }
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
     public UUID getUserId() { return userId; }

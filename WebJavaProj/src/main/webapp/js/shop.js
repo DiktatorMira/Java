@@ -2,8 +2,9 @@ import React from "react";
 
 const initialState = {
     authUser: null,
-    page: 'home',
     categories: [],
+    cart: null,
+    page: 'home',
 };
 const AppContext = React.createContext(null);
 
@@ -12,11 +13,13 @@ function reducer( state, action ) {
         case 'authenticate' :
             window.localStorage.setItem("auth-user", JSON.stringify(action.payload));
             return { ...state, authUser: action.payload };
+        case 'cart':
+            return { ...state, cart: action.payload };
         case 'categories':
             return { ...state, categories: action.payload };
         case 'logout' :
-            window.localStorage.removeItem("auth-user");
-            return { ...state,  authUser: null };
+            window.localStorage.removeItem( "auth-user" );
+            return { ...state, authUser: null, cart: null };
         case 'navigate':
             window.location.hash = action.payload;
             return { ...state, page: action.payload };
@@ -42,15 +45,21 @@ function App({contextPath, homePath}) {
             if (typeof params.headers.Authorization === 'undefined') params.headers.Authorization = "Bearer " + state.authUser.token.tokenId;
         }
         fetch(url, params)
-            .then(r => r.json()).then(j => {
-                if (j.status.isSuccessful) { resolve( j.data ); }
-                else { reject( j.data ); }
+            .then(r => r.json())
+            .then(j => {
+                if (j.status.isSuccessful) resolve(j.data);
+                else reject(j.data);
             });
-    }));
+    } ) );
+    const refreshCart = React.useCallback( () => {
+        request('/shop/cart')
+            .then(cart => dispatch({type: "cart", payload: cart}))
+            .catch( ()=>{} );
+    } );
     React.useEffect( () => {
         let authUser = window.localStorage.getItem( "auth-user" );
         if (authUser) {
-            authUser = JSON.parse( authUser );
+            authUser = JSON.parse(authUser);
             let token = authUser.token;
             if (token) {
                 let exp = new Date(token.exp);
@@ -63,7 +72,8 @@ function App({contextPath, homePath}) {
         loadCategories();
         return () => { window.removeEventListener('hashchange', checkHash); };
     }, [] );
-    return <AppContext.Provider value={{state, dispatch, contextPath, loadCategories, request}}>
+    React.useEffect( () => { refreshCart(); }, [state.authUser] );
+    return <AppContext.Provider value={{state, dispatch, contextPath, loadCategories, request, refreshCart}}>
         <header>
             <nav className="navbar navbar-expand-lg bg-body-tertiary">
                 <div className="container-fluid">
@@ -82,7 +92,12 @@ function App({contextPath, homePath}) {
                             </li>
                             <li className="nav-item">
                                 <a className="nav-link "
-                                   onClick={() => dispatch({type: "navigate", payload: "cart"})}>Кошик</a>
+                                   onClick={() => dispatch({type: "navigate", payload: "cart"})}>Кошик
+                                    <span className="cart-widget-quantity">{
+                                        (state.cart && state.cart.cartItems && state.cart.cartItems.length > 0)
+                                            ? state.cart.cartItems.reduce((s,c)=>s+c.quantity, 0)
+                                            : 0
+                                    }</span></a>
                             </li>
                         </ul>
                         <form className="d-flex nav-search" role="search">
@@ -135,11 +150,10 @@ function App({contextPath, homePath}) {
 }
 function Admin() {
     const {state, dispatch, contextPath, loadCategories} = React.useContext(AppContext);
-    React.useEffect(() => {
+    React.useEffect( () => {
         if(!state.authUser || !state.authUser.role || !state.authUser.role.canCreate) dispatch({type: 'navigate', payload: 'home'});
-    }, []);
-    const categoryFormRef = React.useRef();
-    const productFormRef = React.useRef();
+    }, [] );
+    const categoryFormRef = React.useRef(), productFormRef = React.useRef();
     const onCategorySubmit = React.useCallback(e => {
         e.preventDefault();
         const formData = new FormData(e.target);
@@ -290,8 +304,7 @@ function Admin() {
     </div>;
 }
 function Signup() {
-    const {contextPath} = React.useContext(AppContext);
-    const formRef = React.useRef();
+    const {contextPath} = React.useContext(AppContext), formRef = React.useRef();
     const onFormSubmit = React.useCallback(e => {
         e.preventDefault();
         const formData = new FormData(e.target);
@@ -307,8 +320,7 @@ function Signup() {
     });
     return <div>
         <h1>Реєстрація нового користувача</h1>
-        <form encType="multipart/form-data" method="POST"
-              onSubmit={onFormSubmit} ref={formRef}>
+        <form encType="multipart/form-data" method="POST" onSubmit={onFormSubmit} ref={formRef}>
             <div className="row">
                 <div className="col col-6">
                     <div className="input-group mb-3">
@@ -392,12 +404,10 @@ function AuthModal() {
     const [password, setPassword] = React.useState("");
     const authModalRef = React.useRef();
     const authClick = React.useCallback(() => {
-        console.log(login, password);
         fetch(`${contextPath}/auth`, {
             method: 'GET',
             headers: { 'Authorization': 'Basic ' + btoa(login + ':' + password) }
         }).then(r => r.json()).then(j => {
-            console.log(j);
             if (j.status.isSuccessful) {
                 dispatch({type: 'authenticate', payload: j.data});
                 bootstrap.Modal.getInstance(authModalRef.current).hide();
@@ -436,10 +446,67 @@ function AuthModal() {
     </div>;
 }
 function Cart() {
-    const {state, dispatch} = React.useContext(AppContext);
+    const {state, dispatch, request, refreshCart} = React.useContext(AppContext);
+    React.useEffect(() => {}, [state.authUser]);
+    const incCartItem = React.useCallback( (item, delta) => {
+        if (Number(item.quantity) + Number(delta) === 0) {
+            if(!confirm("Видалити товар з кошику?")) return;
+        }
+        request(`/shop/cart?cart-id=${item.cartId}&product-id=${item.productId}&delta=${delta}`, {
+            method: 'PUT',
+        }).then(refreshCart).catch(alert);
+    });
+    const delCartItem = React.useCallback((item) => {
+        if (!confirm("Видалити товар з кошику?"))  return;
+        request(`/shop/cart?cart-id=${item.cartId}&product-id=${item.productId}`, {
+            method: 'DELETE',
+        }).then(refreshCart).catch(alert);
+    });
+    const delCart = React.useCallback( () => {
+        if (!confirm("Скасувати весь кошик?")) return;
+        request(`/shop/cart?cart-id=${state.cart.id}`, {
+            method: 'DELETE',
+        }).then(refreshCart).catch(alert);
+    });
+    const buyCart = React.useCallback( () => {
+        if (!confirm(`Підтверджуєте покупку на суму ${ state.cart.cartItems.reduce((s,c)=>s+c.price, 0.0).toFixed(2)} грн?`)) return;
+    });
     return <div>
         <h2>Кошик</h2>
-        <b onClick={() => dispatch({type: "navigate", payload: "home"})}>На Домашню</b>
+        {(state.cart && state.cart.cartItems)
+            ? <React.Fragment>
+                {state.cart.cartItems.map(item => <div className="row cart-row align-items-center" key={item.productId}>
+                    <div className="col col-1">
+                        <picture onClick={()=>dispatch({type: 'navigate',
+                            payload: 'product/' + (item.product.slug || item.product.id)})}>
+                            <img src={"storage/" + item.product.imageUrl} alt="product"/>
+                        </picture>
+                    </div>
+                    <div className="col col-4">{item.product.name} </div>
+                    <div className="col col-1">{item.product.price.toFixed(2)}</div>
+                    <div className="col col-1">{item.quantity}</div>
+                    <div className="col col-2">{item.price.toFixed(2)}</div>
+                    <div className="col col-3">
+                        <button onClick={() => incCartItem(item, -1)} className="btn btn-outline-warning"><i className="bi bi-bag-dash"></i></button>
+                        <button onClick={() => incCartItem(item, 1) } className="btn btn-outline-success"><i className="bi bi-bag-plus"></i></button>
+                        <button onClick={() => delCartItem(item)    } className="btn btn-outline-danger"><i className="bi bi-bag-x"></i></button>
+                    </div>
+                </div>)}
+                {state.cart.cartItems.length > 0 && <div className="row">
+                    <div className="col offset-5 col-1">Разом</div>
+                    <div className="col col-1 align-self-center">
+                        {state.cart.cartItems.reduce((s,c)=>s+c.quantity, 0)}
+                    </div>
+                    <div className="col col-2">
+                        {state.cart.cartItems.reduce((s,c)=>s+c.price, 0.0).toFixed(2)}
+                    </div>
+                    <div className="col">
+                        <button onClick={buyCart} className="btn btn-success" title="Придбати"><i className="bi bi-basket3"></i></button>
+                        <button onClick={delCart} className="btn btn-danger" title="Скасувати"><i className="bi bi-trash3"></i></button>
+                    </div>
+                </div>}
+            </React.Fragment>
+            : <h3>Кошик порожній</h3>}
     </div>;
 }
 function Home() {
@@ -456,41 +523,32 @@ function Home() {
     </div>;
 }
 function Category({id}) {
-    const { contextPath, dispatch, request } = React.useContext(AppContext);
+    const { contextPath } = React.useContext(AppContext);
     const [products, setProducts] = React.useState([]);
     React.useEffect( () => {
         fetch(`${contextPath}/shop/product?category=${id}`)
             .then(r => r.json())
             .then(j => {
-                if(j.status.isSuccessful) setProducts(j.data);
+                if (j.status.isSuccessful) setProducts(j.data);
                 else console.error(j.data);
             });
     }, [id]);
-    const cartClick = React.useCallback( (e, product) => {
-        e.stopPropagation();
-        request('/shop/cart?product-id=' + product.id, {
-            method: 'POST'
-        }).then(console.log).catch(console.error);
-    });
     return <div>
         <h2>Category page: {id}</h2>
-        {products.map(p => <div key={p.id} className="product-card"
-                                onClick={() => dispatch({type: 'navigate', payload: 'product/' + (p.slug || p.id) })}>
-            <picture><img src={"storage/" + p.imageUrl} alt="product"/></picture>
-            <h3>{p.name}</h3>
-            <p>{p.description}</p>
-            <h4>₴ {p.price.toFixed(2)}</h4>
-            <span className="cart-fab" onClick={(e) => cartClick(e, p)}><i className="bi bi-bag-check"></i></span>
-        </div>)}
+        {products.map(p => <ProductCard p={p} key={p.id}/>)}
     </div>;
 }
 function Product({id}) {
-    const {request, dispatch} = React.useContext(AppContext);
+    const {request, dispatch, refreshCart} = React.useContext(AppContext);
     const [product, setProduct] = React.useState({});
     React.useEffect( () => {
-        request('/shop/product?id=' + id).then(setProduct).catch( console.error );
+        request('/shop/product?id=' + id).then(setProduct).catch(console.error);
     }, [id] );
-    const cartClick = React.useCallback( e => { e.stopPropagation(); });
+    const cartClick = React.useCallback( () => {
+        request('/shop/cart?product-id=' + product.id, {
+            method: 'POST'
+        }).then(refreshCart).catch(alert);
+    });
     return <div>
         <h2>Сторінка товару</h2>
         {product.id && <div>
@@ -504,7 +562,8 @@ function Product({id}) {
                     <h3>{product.name}</h3>
                     <p>{product.description}</p>
                     <h4>{product.price.toFixed(2)}</h4>
-                    <button>До кошику</button>
+                    <i>Перевірити на наявність у кошику, змінити надпис на кнопці</i>
+                    <button onClick={e => {e.stopPropagation();cartClick();} }>До кошику</button>
                     <hr/>
                     <h5>Вас також може зацікавити:</h5>
                     {product.similarProducts && product.similarProducts.map(p =>
@@ -512,21 +571,33 @@ function Product({id}) {
                 </div>
             </div>
         </div>
-        }{!product.id && <div>
-        Не знайдено
-    </div>}
+        }{!product.id && <div>Не знайдено</div>}
     </div>;
 }
 function ProductCard({p, isSmall}) {
-    const {dispatch} = React.useContext(AppContext);
-    const cartClick = React.useCallback( e => { e.stopPropagation(); });
+    const {state, dispatch, request, refreshCart} = React.useContext(AppContext);
+    const cartPost = React.useCallback( (e, product) => {
+        e.stopPropagation();
+        request('/shop/cart?product-id=' + product.id, {
+            method: 'POST'
+        }).then(refreshCart).catch(alert);
+    });
+    const cartPut = React.useCallback( (e, product) => {
+        e.stopPropagation();
+        request(`/shop/cart?cart-id=${state.cart.id}&product-id=${product.id}&delta=1`, {
+            method: 'PUT',
+        }).then(refreshCart).catch(alert);
+    });
     return <div key={p.id} className={"product-card " + (isSmall ? "scale-75" : "") }
                 onClick={() => dispatch({type: 'navigate', payload: 'product/' + (p.slug || p.id)})}>
         <picture><img src={"storage/" + p.imageUrl} alt="product"/></picture>
         <h3>{p.name}</h3>
         <p>{p.description}</p>
         <h4>₴ {p.price.toFixed(2)}</h4>
-        <span className="cart-fab" onClick={cartClick}><i className="bi bi-bag-check"></i></span>
+        {(state.cart && state.cart.cartItems && state.cart.cartItems.some(ci => ci.productId === p.id))
+            ? <span className="cart-fab" onClick={(e) => cartPut(e, p)}><i className="bi bi-plus-circle"></i></span>
+            : <span className="cart-fab" onClick={(e) => cartPost(e, p)}><i className="bi bi-bag-check"></i></span>
+        }
     </div>
 }
 const domRoot = document.getElementById("app-container");
